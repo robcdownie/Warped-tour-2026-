@@ -273,6 +273,39 @@ async function functionalPass(base) {
     `source=${provenance.source} rev=${provenance.revision}`,
   );
 
+  // 3f. Onboarding promises "importing Robbie's schedule will not replace your
+  // personal band choices" — hold the app to it.
+  const picksSurvive = await page.evaluate(async () => {
+    const W = window.__WLB__;
+    const before = W.state().selections.filter((s) => s.userId === 'ari' && s.selected).length;
+    await W.applyImport(W.decode(W.exportSchedule()));
+    const after = W.state().selections.filter((s) => s.userId === 'ari' && s.selected).length;
+    return { before, after };
+  });
+  check(
+    'a schedule import leaves personal band choices alone',
+    picksSurvive.before > 0 && picksSurvive.after === picksSurvive.before,
+    `before=${picksSurvive.before} after=${picksSurvive.after}`,
+  );
+
+  // 3g. Restart Welcome Guide replays onboarding without deleting anything.
+  const restart = await page.evaluate(async () => {
+    const W = window.__WLB__;
+    const st = W.state();
+    const picks = st.selections.filter((s) => s.selected).length;
+    const times = st.performances.filter((p) => p.startTime && p.stageId).length;
+    await st.restartOnboarding();
+    const after = W.state();
+    return {
+      onboardingReset: after.settings.onboardingComplete === false,
+      picksKept: after.selections.filter((s) => s.selected).length === picks,
+      timesKept: after.performances.filter((p) => p.startTime && p.stageId).length === times,
+    };
+  });
+  check('Restart Welcome Guide replays the flow', restart.onboardingReset);
+  check('…without deleting picks or set times', restart.picksKept && restart.timesKept, JSON.stringify(restart));
+  await skipOnboarding(page);
+
   // 4. Reload page (persistence across reload).
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('nav[aria-label="Primary"]');
