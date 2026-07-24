@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, X, Clock } from 'lucide-react';
 import { useApp } from '@/store/appStore';
 import { cx } from '@/components/ui';
 import { applyScheduleEdit } from './scheduleEdit';
@@ -96,14 +96,22 @@ function TimeField({
     <label className="block">
       <span className="mb-0.5 block text-[11px] font-semibold text-muted">{label}</span>
       <div className="relative">
+        <Clock
+          size={15}
+          className={cx('pointer-events-none absolute left-2.5 top-1/2 z-[1] -translate-y-1/2', hasValue ? 'text-accent' : 'text-muted')}
+          aria-hidden
+        />
         <input
           type="time"
           value={value ?? ''}
           onChange={(e) => onCommit(e.target.value ? e.target.value : null)}
           aria-label={label}
+          // Sunken fill against the white card + a strong border + clock icon so
+          // an unset field clearly reads as a tappable time input. (Empty native
+          // time inputs otherwise render an almost-invisible "--:--".)
           className={cx(
-            'min-h-touch w-full rounded-lg border border-subtle bg-[var(--surface-sunken)] px-2 text-[14px] outline-none focus:border-warp-blue-400',
-            hasValue ? 'text-primary' : 'text-muted',
+            'min-h-touch w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface-sunken)] pl-8 pr-8 text-[14px] text-primary outline-none focus:border-warp-blue-400',
+            !hasValue && 'border-dashed',
           )}
         />
         {hasValue && (

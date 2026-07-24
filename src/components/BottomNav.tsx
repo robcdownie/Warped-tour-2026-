@@ -20,7 +20,13 @@ export function BottomNav({
 }) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-black/40"
+      // after:… paints the nav colour from the nav's bottom edge downward. On
+      // iOS home-screen installs, a fixed bottom-0 element can sit ABOVE the
+      // physical bottom (iOS reserves the home-indicator strip), leaving the
+      // light page background showing under the bar. This filler covers that
+      // gap; where the bar already reaches the bottom it paints below the
+      // screen and is never seen.
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-black/40 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-24 after:bg-[var(--nav-bg)] after:content-['']"
       style={{ background: 'var(--nav-bg)' }}
       aria-label="Primary"
     >
@@ -35,7 +41,7 @@ export function BottomNav({
               aria-current={isActive ? 'page' : undefined}
               aria-label={label}
               className={cx(
-                'min-h-touch flex flex-1 flex-col items-center gap-0.5 py-2',
+                'min-h-touch flex flex-1 flex-col items-center gap-0.5 py-1.5',
                 isActive ? 'text-warp-pink' : 'text-white/70',
               )}
             >
