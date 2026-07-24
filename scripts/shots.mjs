@@ -248,6 +248,20 @@ async function walk(browser, base, vp) {
     if (await tap('button:has-text("My Day")')) { await page.waitForTimeout(300); await shoot('schedule-myday', { full: true }); }
     if (await tap('button:has-text("Conflicts")')) { await page.waitForTimeout(300); await shoot('schedule-conflicts', { full: true }); }
 
+    // Board mode — the poster-shaped entry screen, mid-entry so the band
+    // picker and the running column are both captured.
+    screen = 'schedule-board';
+    if (await tap('button:has-text("Enter Times")')) {
+      await page.waitForTimeout(300);
+      await tap('button:has-text("Ghost")', 2000);
+      await page.waitForTimeout(300);
+      await page.fill('#board-time', '352').catch(() => {});
+      await page.waitForTimeout(150);
+      await page.fill('#board-band', 'simple').catch(() => {});
+      await page.waitForTimeout(300);
+      await shoot('schedule-board', { full: true });
+    }
+
     // Friends screen
     screen = 'friends-seeded';
     await tap('header button[aria-label="Open menu"]');

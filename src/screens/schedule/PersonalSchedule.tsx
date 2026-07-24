@@ -32,7 +32,9 @@ export function PersonalSchedule({ day }: { day: DayId }) {
       .filter((s) => {
         if (s.userId !== activeUserId || !s.selected) return false;
         const p = performanceById.get(s.performanceId);
-        return p?.day === day && p.type === 'main' && p.startTime;
+        // Unplugged sets count too, once the board has given them a day and a
+        // time — the day+startTime checks already exclude unscheduled ones.
+        return p?.day === day && p.startTime;
       })
       .map((s) => ({ sel: s, perf: performanceById.get(s.performanceId)! }))
       .sort((a, b) => (a.perf.startTime! < b.perf.startTime! ? -1 : 1));

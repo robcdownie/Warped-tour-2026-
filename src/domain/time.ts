@@ -17,6 +17,74 @@ export function minutesToHHMM(min: number): string {
   return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
+/**
+ * Parse a set time typed off the festival board into "HH:mm".
+ *
+ * The board lists start times only, in festival hours (11:00–22:00), so a bare
+ * number is unambiguous and we can skip the AM/PM tap entirely:
+ *   "1153" -> 11:53 AM   "1254" -> 12:54 PM   "205" -> 2:05 PM   "931" -> 9:31 PM
+ * An explicit am/pm always wins, and a 24-hour time typed in full is kept as-is.
+ * Returns null for anything unparseable so the caller can hold the raw text.
+ */
+export function parseBoardTime(raw: string): string | null {
+  const s = raw.trim().toLowerCase().replace(/\./g, '');
+  if (!s) return null;
+
+  let hh: number;
+  let mm: number;
+  let meridiem: string | undefined;
+
+  // "3:05pm" | "1505" | "205" | "15:05"
+  const withMinutes = s.match(/^(\d{1,2}):?(\d{2})\s*(am|pm)?$/);
+  if (withMinutes) {
+    hh = Number(withMinutes[1]);
+    mm = Number(withMinutes[2]);
+    meridiem = withMinutes[3];
+  } else {
+    // Bare hour: "3pm", "3 pm", or just "3" (festival hours make it PM).
+    const bareHour = s.match(/^(\d{1,2})\s*(am|pm)?$/);
+    if (!bareHour) return null;
+    hh = Number(bareHour[1]);
+    mm = 0;
+    meridiem = bareHour[2];
+  }
+
+  if (mm > 59) return null;
+
+  if (meridiem) {
+    if (hh > 12) return null; // "13pm" is nonsense
+    hh = hh % 12;
+    if (meridiem === 'pm') hh += 12;
+  } else if (hh >= 1 && hh <= 10) {
+    // Festival runs 11:00–22:00, so 1–10 can only mean afternoon/evening.
+    hh += 12;
+  }
+  // 11 stays 11 AM, 12 stays 12 PM, 13–23 are already 24-hour.
+
+  if (hh > 23) return null;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+/**
+ * True when the digits typed so far can only mean one time, so the caller can
+ * jump straight to the band field without waiting for a tap.
+ *
+ * Four digits are always complete. Three digits are complete only when no
+ * fourth digit could extend them into a valid time ("148" can only be 1:48,
+ * but "115" might still become 11:50). One or two digits are never assumed —
+ * "3" could be the start of "331".
+ */
+export function shouldAdvanceBoardTime(raw: string): boolean {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length >= 4) return true;
+  if (digits.length < 3) return false;
+  if (!parseBoardTime(digits)) return false;
+  for (let d = 0; d <= 9; d++) {
+    if (parseBoardTime(digits + d)) return false;
+  }
+  return true;
+}
+
 /** "15:05" -> "3:05 PM". */
 export function formatTime(hhmm: string | null): string {
   if (!hhmm) return '--:--';

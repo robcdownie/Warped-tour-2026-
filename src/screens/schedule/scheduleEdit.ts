@@ -1,4 +1,4 @@
-import type { Performance } from '@/domain/types';
+import type { DayId, Performance } from '@/domain/types';
 import { hhmmToMinutes } from '@/domain/time';
 
 // Helpers for the schedule editor: validation + building an updated Performance.
@@ -14,10 +14,18 @@ export interface EditResult {
  * - end must not precede start
  * - warns on same-stage same-time clash with another performer
  * - warns on wrong-day assignment (handled by caller with day context)
+ *
+ * `day` is patchable for unplugged sets, which are seeded with `day: null`
+ * because their day isn't announced until the board goes up.
  */
 export function applyScheduleEdit(
   perf: Performance,
-  patch: { stageId?: string | null; startTime?: string | null; endTime?: string | null },
+  patch: {
+    stageId?: string | null;
+    startTime?: string | null;
+    endTime?: string | null;
+    day?: DayId | null;
+  },
   allPerformances: Performance[],
 ): EditResult {
   const next: Performance = { ...perf, ...patch };

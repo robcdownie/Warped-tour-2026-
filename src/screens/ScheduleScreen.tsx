@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { CalendarDays, Pencil, AlertTriangle, Upload } from 'lucide-react';
+import { CalendarDays, Pencil, AlertTriangle, Upload, LayoutList, ListOrdered } from 'lucide-react';
 import { Screen, Button, cx } from '@/components/ui';
 import { EmptyState } from '@/components/EmptyState';
 import { ConflictCard } from '@/components/ConflictCard';
 import { PersonalSchedule } from './schedule/PersonalSchedule';
 import { ScheduleEditor } from './schedule/ScheduleEditor';
+import { BoardEntry } from './schedule/BoardEntry';
 import { useApp } from '@/store/appStore';
 import { useConflicts } from '@/hooks/useConflicts';
 import { isScheduleLoaded } from '@/store/selectors';
@@ -14,6 +15,8 @@ import type { MenuRoute } from '@/components/MenuDrawer';
 import type { DayId } from '@/domain/types';
 
 type View = 'schedule' | 'editor' | 'conflicts';
+/** Board mirrors the physical set-time poster; List is the alphabetical editor. */
+type EntryMode = 'board' | 'list';
 
 export function ScheduleScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }) {
   const performances = useApp((s) => s.performances);
@@ -23,6 +26,7 @@ export function ScheduleScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => v
   const summary = conflictSummary(conflicts);
 
   const [view, setView] = useState<View>(scheduleLoaded ? 'schedule' : 'editor');
+  const [entryMode, setEntryMode] = useState<EntryMode>('board');
   const [day, setDay] = useState<DayId>('saturday');
 
   return (
@@ -45,7 +49,7 @@ export function ScheduleScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => v
           <CalendarDays size={15} aria-hidden /> My Day
         </SubTab>
         <SubTab active={view === 'editor'} onClick={() => setView('editor')}>
-          <Pencil size={15} aria-hidden /> Edit Times
+          <Pencil size={15} aria-hidden /> Enter Times
         </SubTab>
         <SubTab active={view === 'conflicts'} onClick={() => setView('conflicts')}>
           <AlertTriangle size={15} aria-hidden /> Conflicts
@@ -57,7 +61,19 @@ export function ScheduleScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => v
         </SubTab>
       </div>
 
-      {view === 'editor' && <ScheduleEditor />}
+      {view === 'editor' && (
+        <>
+          <div className="mb-3 flex rounded-xl bg-[var(--surface-sunken)] p-0.5">
+            <ModeTab active={entryMode === 'board'} onClick={() => setEntryMode('board')}>
+              <LayoutList size={15} aria-hidden /> Board
+            </ModeTab>
+            <ModeTab active={entryMode === 'list'} onClick={() => setEntryMode('list')}>
+              <ListOrdered size={15} aria-hidden /> A–Z list
+            </ModeTab>
+          </div>
+          {entryMode === 'board' ? <BoardEntry /> : <ScheduleEditor />}
+        </>
+      )}
 
       {view === 'schedule' &&
         (scheduleLoaded ? (
@@ -137,6 +153,22 @@ function DayToggle({ day, setDay }: { day: DayId; setDay: (d: DayId) => void }) 
         </button>
       ))}
     </div>
+  );
+}
+
+function ModeTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cx(
+        'min-h-touch flex flex-1 items-center justify-center gap-1.5 rounded-lg text-[13px] font-semibold transition',
+        active ? 'bg-[var(--chip-on)] text-white shadow-sm' : 'text-secondary',
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
