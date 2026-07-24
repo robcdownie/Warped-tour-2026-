@@ -8,6 +8,7 @@ import type {
   AttendanceDecision,
   ColorKey,
   AppSettings,
+  DayId,
 } from '@/domain/types';
 import { encodeEnvelope, type Envelope, type PayloadType } from './codec';
 
@@ -71,13 +72,22 @@ export function selectionsFromData(d: SelectionsData): { user: User; selections:
 // ---- Schedule ------------------------------------------------------------
 export interface ScheduleData {
   p: [string, string | null, string | null, string | null][]; // [perfId, stageId, start, end]
+  /** Sender's schedule revision — lets the receiver spot a re-send vs an update. */
+  rev?: number;
+  /** Days the sender marked verified-complete, so completeness travels too. */
+  done?: DayId[];
 }
 
-export function buildScheduleData(performances: Performance[]): ScheduleData {
+export function buildScheduleData(
+  performances: Performance[],
+  meta?: { revision?: number; completeDays?: DayId[] },
+): ScheduleData {
   return {
     p: performances
       .filter((p) => p.startTime || p.stageId || p.endTime)
       .map((p) => [p.id, p.stageId, p.startTime, p.endTime]),
+    rev: meta?.revision,
+    done: meta?.completeDays,
   };
 }
 
@@ -132,8 +142,13 @@ export interface BackupData {
 export function encodeSelections(user: User, selections: Selection[], now: string): string {
   return encodeEnvelope('selections', user.id, buildSelectionsData(user, selections), now);
 }
-export function encodeSchedule(performances: Performance[], source: string, now: string): string {
-  return encodeEnvelope('schedule', source, buildScheduleData(performances), now);
+export function encodeSchedule(
+  performances: Performance[],
+  source: string,
+  now: string,
+  meta?: { revision?: number; completeDays?: DayId[] },
+): string {
+  return encodeEnvelope('schedule', source, buildScheduleData(performances, meta), now);
 }
 export function encodeCoordinates(locations: MapLocation[], source: string, now: string): string {
   return encodeEnvelope('coordinates', source, buildCoordinatesData(locations), now);

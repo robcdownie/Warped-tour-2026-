@@ -2,7 +2,7 @@ import type { MapLocation, User } from '@/domain/types';
 import { MapMarker } from './MapCanvas';
 import { FriendAvatar } from '@/components/FriendAvatar';
 import { CATEGORY_STYLE, amenityColor } from './markerMeta';
-import type { PlannedPosition } from '@/domain/positions';
+import { positionA11yLabel, type PlannedPosition } from '@/domain/positions';
 
 /** Stage/location pin: colored teardrop with an optional short label. */
 export function LocationPin({
@@ -62,12 +62,13 @@ export function LocationPin({
 export function FriendClusterPin({
   users,
   loc,
-  anyStale,
+  sourceSummary,
   onClick,
 }: {
   users: User[];
   loc: MapLocation;
-  anyStale?: boolean;
+  /** e.g. "1 checked in, 1 planned" — read out, not implied by dimming. */
+  sourceSummary: string;
   onClick?: () => void;
 }) {
   return (
@@ -75,11 +76,11 @@ export function FriendClusterPin({
       xPercent={loc.xPercent}
       yPercent={loc.yPercent}
       onClick={onClick}
-      ariaLabel={`${users.map((u) => u.name).join(' and ')} planned at ${loc.name}`}
+      ariaLabel={`${users.map((u) => u.name).join(' and ')} at ${loc.name}: ${sourceSummary}`}
       anchor="bottom"
       z={5}
     >
-      <div className="flex flex-col items-center" style={{ opacity: anyStale ? 0.8 : 1 }}>
+      <div className="flex flex-col items-center">
         <div className="flex items-center rounded-full border-2 border-white bg-white/95 py-0.5 pl-0.5 pr-1.5 shadow-md">
           <span className="flex -space-x-2">
             {users.slice(0, 3).map((u) => (
@@ -88,8 +89,11 @@ export function FriendClusterPin({
           </span>
           <span className="ml-1 text-[10px] font-bold text-warp-ink">{users.length}</span>
         </div>
+        <span className="-mt-0.5 rounded-full bg-[#1f5fa8] px-1 text-[8px] font-bold leading-[13px] text-white shadow">
+          {sourceSummary}
+        </span>
         <span
-          className="mt-0.5 h-0 w-0"
+          className="h-0 w-0"
           style={{ borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '6px solid #fff' }}
           aria-hidden
         />
@@ -98,7 +102,12 @@ export function FriendClusterPin({
   );
 }
 
-/** Friend marker showing a planned/checked-in position. */
+/**
+ * Friend marker. The position SOURCE is carried by a visible badge, never by
+ * opacity alone — a faded pin in sunlight is indistinguishable from a normal
+ * one, and "planned" vs "checked in 6m ago" changes whether you walk over
+ * (plan §P0-3).
+ */
 export function FriendPin({
   user,
   position,
@@ -112,30 +121,54 @@ export function FriendPin({
 }) {
   if (!loc) return null;
   const traveling = position.kind === 'traveling';
-  const stale = position.source === 'stale';
+  const manual = position.source === 'manual';
+  const hasStaleHistory = !!position.staleCheckIn;
+
+  const badge = manual
+    ? { text: `${position.ageMinutes ?? 0}m`, bg: '#0a7d5a' }
+    : traveling
+      ? { text: 'Walking', bg: '#b45309' }
+      : hasStaleHistory
+        ? { text: 'Planned', bg: '#475569' }
+        : { text: 'Planned', bg: '#1f5fa8' };
+
   return (
     <MapMarker
       xPercent={loc.xPercent}
       yPercent={loc.yPercent}
       onClick={onClick}
-      ariaLabel={`${user.name}: ${position.label} (planned)`}
+      ariaLabel={positionA11yLabel(position, user.name)}
       anchor="bottom"
       z={5}
     >
-      <div className="flex flex-col items-center" style={{ opacity: stale ? 0.6 : 1 }}>
+      <div className="flex flex-col items-center">
         <div className="relative">
           <FriendAvatar user={user} size={30} ring />
+          {manual && (
+            <span
+              className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-warp-ok"
+              aria-hidden
+            />
+          )}
           {traveling && (
             <span className="absolute -right-1 -top-1 rounded-full bg-warp-yellow px-1 text-[8px] font-bold text-warp-ink shadow">
               →
             </span>
           )}
-          {position.source === 'manual' && (
-            <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-white bg-warp-ok" aria-hidden />
-          )}
         </div>
         <span
-          className="mt-0.5 h-0 w-0"
+          className="-mt-0.5 rounded-full px-1 text-[8px] font-bold leading-[13px] text-white shadow"
+          style={{ background: badge.bg }}
+        >
+          {badge.text}
+        </span>
+        {hasStaleHistory && (
+          <span className="rounded-full bg-[#475569] px-1 text-[7px] font-bold leading-[11px] text-white/90 shadow">
+            stale {position.staleCheckIn!.ageMinutes}m
+          </span>
+        )}
+        <span
+          className="h-0 w-0"
           style={{ borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '6px solid #fff' }}
           aria-hidden
         />

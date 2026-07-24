@@ -23,7 +23,26 @@ const CATEGORIES: LocationCategory[] = [
 
 export function CalibrationScreen() {
   const adminUnlocked = useApp((s) => s.settings.adminUnlocked);
+  const mapEditingEnabled = useApp((s) => s.settings.mapEditingEnabled);
   const updateSettings = useApp((s) => s.updateSettings);
+
+  // Two gates on purpose: "allow map editing" is the festival-day safety
+  // switch set in Map Setup, the unlock below is the one-time admin
+  // acknowledgement (plan §P1-12).
+  if (!mapEditingEnabled) {
+    return (
+      <Screen>
+        <Card className="mt-6 p-6 text-center">
+          <Lock size={36} className="mx-auto mb-3 text-muted" aria-hidden />
+          <h2 className="font-display text-[17px] text-primary">Map editing is off</h2>
+          <p className="mx-auto mt-1 max-w-[40ch] text-[13px] text-secondary">
+            Turn on <b>Allow map editing</b> in Map Setup first. It stays off during the festival so
+            a mis-tap can&apos;t move a stage.
+          </p>
+        </Card>
+      </Screen>
+    );
+  }
 
   if (!adminUnlocked) {
     return (

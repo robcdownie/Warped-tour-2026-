@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { detectConflicts, type ConflictContext } from './conflicts';
-import type { Performance, Selection, MapLocation, Priority } from './types';
+import type { Performance, Selection, MapLocation, Priority, Artist } from './types';
+
+// Real names, because the point of these conflicts is that they name bands.
+const ARTISTS: Artist[] = [
+  { id: 'a', name: 'Jimmy Eat World', searchAliases: [], category: 'main-lineup' },
+  { id: 'b', name: 'Underoath', searchAliases: [], category: 'main-lineup' },
+  { id: 'c', name: 'The Story So Far', searchAliases: [], category: 'main-lineup' },
+  { id: 'filler', name: 'Filler Band', searchAliases: [], category: 'main-lineup' },
+];
 
 // Two stages far apart so travel is meaningful.
 const stages: MapLocation[] = [
@@ -33,6 +41,7 @@ function ctx(perfs: Performance[], sels: Selection[]): ConflictContext {
     selections: sels,
     performanceById: new Map(perfs.map((p) => [p.id, p])),
     locationById: new Map(stages.map((s) => [s.id, s])),
+    artistById: new Map(ARTISTS.map((a) => [a.id, a])),
     allPerformances: perfs,
     crowd: 'normal',
     turnoverBuffer: 10,
@@ -76,6 +85,58 @@ describe('conflict engine (spec §22, §28)', () => {
     const conflicts = detectConflicts('saturday', ctx([p1, p2], [sel('a'), sel('b')]));
     expect(conflicts.some((c) => c.type === 'missing-stage')).toBe(true);
     expect(conflicts.some((c) => c.type === 'missing-time')).toBe(true);
+  });
+
+  it('names both artists in the title, message and attend actions (plan §P0-4)', () => {
+    const perfs = [perf('a', 'ghost', '15:05', '15:45'), perf('b', 'beatbox', '15:20', '16:00')];
+    const conflicts = detectConflicts('saturday', ctx(perfs, [sel('a'), sel('b')]));
+    const overlap = conflicts.find((c) => c.type === 'overlap')!;
+    expect(overlap.title).toBe('Jimmy Eat World conflicts with Underoath');
+    expect(overlap.message).toContain('Jimmy Eat World starts at 3:05 PM');
+    expect(overlap.message).toContain('Underoath starts at 3:20 PM');
+    expect(overlap.artistNames).toEqual(['Jimmy Eat World', 'Underoath']);
+    // No "first set" / "second set" ambiguity anywhere in the actions.
+    const labels = overlap.actions.map((a) => a.label);
+    expect(labels).toContain('Attend Jimmy Eat World');
+    expect(labels).toContain('Attend Underoath');
+    expect(labels.some((l) => /first set|second set/i.test(l))).toBe(false);
+  });
+
+  it('names the artist on missing-stage and missing-time notes', () => {
+    const p1: Performance = { ...perf('a', 'ghost', '15:00'), stageId: null };
+    const p2: Performance = { ...perf('b', 'rex', '15:00'), startTime: null };
+    const conflicts = detectConflicts('saturday', ctx([p1, p2], [sel('a'), sel('b')]));
+    expect(conflicts.find((c) => c.type === 'missing-stage')!.title).toContain('Jimmy Eat World');
+    expect(conflicts.find((c) => c.type === 'missing-time')!.title).toContain('Underoath');
+  });
+
+  it('names both artists in a tight-walk warning', () => {
+    const perfs = [perf('a', 'ghost', '15:00', '15:40'), perf('b', 'rex', '15:45', '16:20')];
+    const conflicts = detectConflicts('saturday', ctx(perfs, [sel('a'), sel('b')]));
+    const travel = conflicts.find((c) => c.type === 'insufficient-travel')!;
+    expect(travel.title).toBe('Jimmy Eat World to Underoath may be too tight');
+  });
+
+  it('offers a split-set action on an overlap', () => {
+    const perfs = [perf('a', 'ghost', '15:05', '15:45'), perf('b', 'beatbox', '15:20', '16:00')];
+    const conflicts = detectConflicts('saturday', ctx(perfs, [sel('a'), sel('b')]));
+    const overlap = conflicts.find((c) => c.type === 'overlap')!;
+    expect(overlap.actions.some((a) => a.kind === 'split')).toBe(true);
+  });
+
+  it('a saved split stops the clash shouting (add-on §3)', () => {
+    const perfs = [perf('a', 'ghost', '15:05', '15:45'), perf('b', 'beatbox', '15:20', '16:00')];
+    const withSplit = [
+      { ...sel('a', 'must-see'), attendanceDecision: 'attending' as const, leaveEarlyMinutes: 15 },
+      { ...sel('b', 'must-see'), attendanceDecision: 'attending' as const, arriveLateMinutes: 16 },
+    ];
+    const conflicts = detectConflicts('saturday', ctx(perfs, withSplit));
+    const overlap = conflicts.find((c) => c.performanceIds.includes('a') && c.performanceIds.includes('b'))!;
+    // The sets still overlap on paper, so the card stays — but it's a note now.
+    expect(overlap.severity).toBe('info');
+    expect(overlap.title).toContain('split plan');
+    // …and it no longer nags about an undecided choice.
+    expect(conflicts.some((c) => c.type === 'undecided-attendance')).toBe(false);
   });
 
   it('labels overlaps that rely on an estimated end time', () => {

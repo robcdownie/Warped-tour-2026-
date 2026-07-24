@@ -61,11 +61,55 @@ Legend: **auto** = covered by `npm test` and/or `npm run verify` (headless Chrom
 44. Remove internet during loading — **device** (app shell renders from cache first)
 45. Useful error without crashing — **auto/device** (empty/error states, no blank screens)
 
+## Data trust (July 2026 pass — see [trust-states](trust-states.md))
+
+46. Saturday reports empty / partial / complete independently of Sunday — **auto**
+47. A day with one entered set reports **partial**, not loaded — **auto**
+48. Partial schedules never produce a confident free-time claim — **auto** (UI copy check) + **device**
+49. Selected sets with no time appear as unknown, not omitted — **device** (My Day)
+50. **Mark Day Complete** flips a partial day and is reversible — **auto**
+51. A friend with no imported plan is excluded from group math — **auto**
+52. An import carrying zero picks still counts as "not imported" — **auto**
+53. Every imported friend shows freshness (and goes stale after 12h) — **auto**
+54. A fresh check-in outranks the planned position — **auto**
+55. A stale check-in falls back to the plan, kept only as history — **auto**
+56. Marker state is readable without relying on opacity — **device**
+57. Every conflict names both artists in title, message and buttons — **auto**
+58. Schedule source, revision and freshness are visible — **auto** + **device**
+59. The map stays "reference layout" until verified in Map Setup — **device**
+60. Calibration is unreachable with map editing off — **device**
+61. An unknown stage in a code is refused with a readable sentence — **auto**
+62. An impossible clock time is refused — **auto**
+63. Nothing is partially imported when validation fails — **auto**
+
+## First run
+
+64. Clearing local data shows the welcome flow before the tabs — **auto**
+65. Choosing Ari makes Ari the active local profile — **auto** + **device**
+66. Offline setup uses the real checks, not a claim — **auto**
+67. **Pick My Bands** lands on Bands; **Import From Robbie** lands on Friends — **device**
+68. An import can't silently replace personal selections — **auto** (preview shows removals)
+69. Reopening does not replay onboarding — **auto**
+70. **Restart Welcome Guide** replays it without deleting data — **device**
+71. Every onboarding screen fits an iPhone SE with no dead end — **auto** (render matrix)
+72. VoiceOver, large text, dark mode, airplane mode — **device**
+
 ## Run it
 
 ```bash
-npm test        # 41 unit tests
-npm run verify  # 19 real-browser checks incl. offline airplane-mode
+npm test        # 122 unit tests
+npm run verify  # 80 real-browser checks: Chromium + WebKit, SE + 16 Pro Max,
+                # light + dark, standalone safe-area sim, offline airplane-mode
 ```
 
+`npm run verify` also runs in CI and **gates the deploy** — a build that can't
+reopen offline, or that renders a partial schedule as complete, never reaches
+the phones.
+
 Then do the **device** rows once on an actual iPhone (see [offline-testing](offline-testing.md)).
+
+### Physical-device pass before festival day
+
+On all three actual iPhones: install from Safari → reopen from Home Screen →
+force-close → Airplane Mode → reboot the phone → scan a QR offline → restore a
+backup → receive an app update without losing data.

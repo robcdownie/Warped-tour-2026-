@@ -13,7 +13,26 @@ export type Priority = 'must-see' | 'want-to-see' | 'optional';
 
 export type AttendanceDecision = 'undecided' | 'attending' | 'skipping';
 
-export type PositionSource = 'planned' | 'manual' | 'live' | 'stale';
+export type PositionSource = 'planned' | 'manual' | 'live' | 'stale' | 'unknown';
+
+/**
+ * How complete a festival day's set-time data is. Deliberately three-valued:
+ * a partial schedule must never be treated as a finished one (unassigned time
+ * is *unknown*, not free).
+ */
+export type ScheduleDayStatus = 'empty' | 'partial' | 'complete';
+
+/**
+ * Whether a person's picks are actually on this device. "No data" is never
+ * "free" — a placeholder profile is excluded from every group calculation.
+ */
+export type UserPlanStatus = 'local' | 'imported' | 'stale' | 'placeholder';
+
+/** Lifecycle of a seeded performance as the official lineup changes. */
+export type OfficialStatus = 'confirmed' | 'source-conflict' | 'removed' | 'canceled';
+
+/** Things a person may need to fit into their day besides music. */
+export type BreakKind = 'food' | 'water' | 'rest' | 'restroom' | 'locker';
 
 export type CrowdDelay = 'light' | 'normal' | 'heavy';
 
@@ -38,6 +57,12 @@ export interface Performance {
   endTime: string | null;
   estimatedEndTime: string | null;
   scheduleStatus: ScheduleStatus;
+  /** Lineup lifecycle. Absent on records seeded before v5 (treat as confirmed). */
+  officialStatus?: OfficialStatus;
+  /** Lineup revision this record was last reconciled against. */
+  sourceRevision?: number;
+  /** When a human confirmed this row against an official source. */
+  verifiedAt?: string | null;
 }
 
 export interface User {
@@ -58,6 +83,12 @@ export interface Selection {
   notes: string;
   /** Set when the user skipped this because of a detected conflict. */
   skippedForConflict?: boolean;
+  /**
+   * Split-set plan: catch part of an overlapping set instead of choosing one.
+   * Minutes late on arrival / minutes cut off the end.
+   */
+  arriveLateMinutes?: number;
+  leaveEarlyMinutes?: number;
 }
 
 export type LocationCategory =
@@ -105,7 +136,48 @@ export interface FriendImportMeta {
   userId: string;
   importedAt: string; // ISO
   selectionCount: number;
+  /** Schedule revision the sender was on, when they told us. */
+  scheduleRevision?: number;
 }
+
+/**
+ * Where this device's set times came from and how fresh they are. Entirely
+ * local metadata — no network needed (spec add-on §5).
+ */
+export interface ScheduleProvenance {
+  /** User id or display name of whoever entered/exported the times. */
+  scheduleSource: string | null;
+  scheduleImportedAt: string | null;
+  scheduleExportedAt: string | null;
+  scheduleRevision: number;
+  /** Per-day human verification: "every set on this day is entered". */
+  saturdayVerifiedAt: string | null;
+  sundayVerifiedAt: string | null;
+  /** Who marked the day complete (for the provenance strip). */
+  saturdayVerifiedBy: string | null;
+  sundayVerifiedBy: string | null;
+}
+
+/**
+ * Provenance for the festival map image + pin coordinates. A cached image is
+ * NOT a verified map — `verified` only flips when a human confirms it.
+ */
+export interface MapMeta {
+  mapYear: number;
+  mapRevision: number;
+  sourceLabel: string;
+  verifiedAt: string | null;
+  calibratedAt: string | null;
+  verified: boolean;
+}
+
+/** Which one-time contextual tips have been dismissed. */
+export type TipId =
+  | 'bands'
+  | 'group'
+  | 'map'
+  | 'schedule-import'
+  | 'festival-mode';
 
 export interface AppSettings {
   activeUserId: string;
@@ -120,6 +192,29 @@ export interface AppSettings {
   allowMeetupDuringMustSee: boolean;
   minMeetupMinutes: number;
   friendImports: Record<string, FriendImportMeta>;
+
+  // ---- first run ---------------------------------------------------------
+  /** False until the welcome flow has been completed or explicitly skipped. */
+  onboardingComplete: boolean;
+  /** Steps the user chose to postpone, so the checklist stops nagging. */
+  setupPostponed: string[];
+  /** The user has seen and acknowledged the emergency-backup step. */
+  emergencyAcknowledged: boolean;
+  dismissedTips: TipId[];
+  /** Collapse (but keep) the setup card once the essentials are done. */
+  setupCardCollapsed: boolean;
+
+  // ---- provenance --------------------------------------------------------
+  schedule: ScheduleProvenance;
+  map: MapMeta;
+
+  // ---- festival mode -----------------------------------------------------
+  /** Simplified one-handed festival-day screen. */
+  festivalMode: boolean;
+  /** Personal break needs surfaced by the energy planner. */
+  breakNeeds: BreakKind[];
+  /** Map editing (calibration) is gated behind this. */
+  mapEditingEnabled: boolean;
 }
 
 export interface HistoryEntry {

@@ -8,7 +8,9 @@ import { ScheduleEditor } from './schedule/ScheduleEditor';
 import { BoardEntry } from './schedule/BoardEntry';
 import { useApp } from '@/store/appStore';
 import { useConflicts } from '@/hooks/useConflicts';
-import { isScheduleLoaded } from '@/store/selectors';
+import { useScheduleStatus } from '@/hooks/useScheduleStatus';
+import { ScheduleStatusStrip, ProvisionalNote } from '@/components/ScheduleStatusStrip';
+import { FirstUseTip } from '@/components/FirstUseTip';
 import { conflictSummary } from '@/domain/conflicts';
 import { ART } from '@/config/event';
 import type { MenuRoute } from '@/components/MenuDrawer';
@@ -19,9 +21,8 @@ type View = 'schedule' | 'editor' | 'conflicts';
 type EntryMode = 'board' | 'list';
 
 export function ScheduleScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }) {
-  const performances = useApp((s) => s.performances);
   const activeUserId = useApp((s) => s.settings.activeUserId);
-  const scheduleLoaded = isScheduleLoaded(performances);
+  const scheduleLoaded = useScheduleStatus().any;
   const conflicts = useConflicts(activeUserId);
   const summary = conflictSummary(conflicts);
 
@@ -79,6 +80,11 @@ export function ScheduleScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => v
         (scheduleLoaded ? (
           <>
             <DayToggle day={day} setDay={setDay} />
+            <ScheduleStatusStrip day={day} />
+            <FirstUseTip id="schedule-import">
+              Sets without a time stay listed as unknown — they are not treated as free space in
+              your day.
+            </FirstUseTip>
             <PersonalSchedule day={day} />
           </>
         ) : (
@@ -110,6 +116,7 @@ export function ScheduleScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => v
 function ConflictsView({ day, setDay }: { day: DayId; setDay: (d: DayId) => void }) {
   const activeUserId = useApp((s) => s.settings.activeUserId);
   const performanceById = useApp((s) => s.performanceById);
+  const dayComplete = useScheduleStatus().byDay[day].status === 'complete';
   const conflicts = useConflicts(activeUserId).filter((c) => {
     const p = performanceById.get(c.performanceIds[0]);
     return p?.day === day;
@@ -118,19 +125,30 @@ function ConflictsView({ day, setDay }: { day: DayId; setDay: (d: DayId) => void
   return (
     <>
       <DayToggle day={day} setDay={setDay} />
+      <ScheduleStatusStrip day={day} compact />
       {conflicts.length === 0 ? (
-        <EmptyState
-          Icon={CalendarDays}
-          image={ART.noConflicts}
-          title="No conflicts"
-          message="Nothing clashes on your plan for this day. Nice."
-        />
+        <>
+          <EmptyState
+            Icon={CalendarDays}
+            image={ART.noConflicts}
+            title={dayComplete ? 'No conflicts' : 'No conflicts so far'}
+            message={
+              dayComplete
+                ? 'Nothing clashes on your plan for this day. Nice.'
+                : 'Nothing clashes among the sets that have times yet.'
+            }
+          />
+          <ProvisionalNote day={day} what="clashes" />
+        </>
       ) : (
-        <div className="space-y-2">
-          {conflicts.map((c) => (
-            <ConflictCard key={c.id} conflict={c} userId={activeUserId} />
-          ))}
-        </div>
+        <>
+          <div className="space-y-2">
+            {conflicts.map((c) => (
+              <ConflictCard key={c.id} conflict={c} userId={activeUserId} />
+            ))}
+          </div>
+          <ProvisionalNote day={day} what="clashes" />
+        </>
       )}
     </>
   );

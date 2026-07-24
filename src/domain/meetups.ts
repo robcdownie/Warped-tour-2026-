@@ -241,7 +241,7 @@ export function findMeetups(day: DayId, ctx: MeetupCtx, limit = 6): MeetupSugges
       location: best.loc,
       userIds: availWindows.map((w) => w.userId),
       perUser,
-      reason: reasonFor(best.loc, preferredSet.has(best.loc.id), best.maxWalk, all),
+      reason: reasonFor(best.loc, preferredSet.has(best.loc.id), best.maxWalk, all, availWindows.length),
       confidence,
       usesEstimated: best.usesEst,
     });
@@ -266,12 +266,24 @@ function overlaps(a: MeetupSuggestion, b: MeetupSuggestion): boolean {
   return a.startMinute < b.endMinute && b.startMinute < a.endMinute;
 }
 
-function reasonFor(loc: MapLocation, preferred: boolean, maxWalk: number, all: boolean): string {
-  const who = all ? 'all three of you' : 'you both';
+function reasonFor(
+  loc: MapLocation,
+  preferred: boolean,
+  maxWalk: number,
+  all: boolean,
+  count: number,
+): string {
+  // Never hardcode the crew size: the app must stay correct if a fourth
+  // person joins, or if only two plans are on this phone (plan §P1-10).
+  const who = all
+    ? count === 2
+      ? 'both of you'
+      : 'everyone in this plan'
+    : `${count} of you`;
   const clear = preferred ? 'a clear, easy-to-find landmark' : 'the closest workable spot';
   const walk =
     maxWalk < 1
-      ? "you're all right by it — no real walking"
+      ? "you're already right by it — no real walking"
       : `the longest walk is about ${Math.round(maxWalk)} min`;
   return `${loc.name} is ${clear} for ${who} — ${walk}.`;
 }

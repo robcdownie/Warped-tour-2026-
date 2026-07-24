@@ -6,9 +6,11 @@ import type {
   TravelOverride,
   DayId,
   Priority,
+  Artist,
 } from './types';
 import { withEffectiveEnds, type EffectiveEnd } from './endTimes';
 import { travelMinutes, overrideMap } from './travel';
+import { hasSplit } from './splitSet';
 import { formatTime, formatDuration } from './time';
 
 export type ConflictType =
@@ -24,7 +26,7 @@ export type ConflictType =
 export type ConflictSeverity = 'info' | 'warn' | 'high';
 
 export interface ConflictAction {
-  kind: 'attend' | 'undecided' | 'ignore' | 'prioritize';
+  kind: 'attend' | 'undecided' | 'ignore' | 'prioritize' | 'split';
   label: string;
   /** Performance to mark attending (others in the conflict become skipping). */
   attendId?: string;
@@ -40,6 +42,8 @@ export interface Conflict {
   message: string;
   usesEstimatedTime: boolean;
   actions: ConflictAction[];
+  /** Artist names involved, in the same order as performanceIds. */
+  artistNames: string[];
 }
 
 export interface ConflictContext {
@@ -47,6 +51,8 @@ export interface ConflictContext {
   selections: Selection[];
   performanceById: Map<string, Performance>;
   locationById: Map<string, MapLocation>;
+  /** Required: every conflict names the actual bands, never "the first set". */
+  artistById: Map<string, Artist>;
   allPerformances: Performance[];
   crowd: CrowdDelay;
   turnoverBuffer: number;
@@ -59,6 +65,7 @@ interface Scheduled {
   start: number;
   end: EffectiveEnd;
   stage?: MapLocation;
+  artistName: string;
 }
 
 const PRIORITY_RANK: Record<Priority, number> = {
@@ -83,16 +90,21 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
     active.push({ perf, sel });
   }
 
+  const nameOf = (p: Performance): string =>
+    ctx.artistById.get(p.artistId)?.name ?? 'This set';
+
   // Missing-data conflicts.
   for (const { perf } of active) {
+    const name = nameOf(perf);
     if (!perf.stageId) {
       conflicts.push({
         id: `missing-stage-${perf.id}`,
         type: 'missing-stage',
         severity: 'info',
         performanceIds: [perf.id],
-        title: 'Stage not set',
-        message: 'This set has no stage yet. It will be checked for conflicts once a stage is entered.',
+        artistNames: [name],
+        title: `${name}: stage not set`,
+        message: `${name} has no stage yet. It will be checked for conflicts once a stage is entered.`,
         usesEstimatedTime: false,
         actions: [],
       });
@@ -103,8 +115,9 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
         type: 'missing-time',
         severity: 'info',
         performanceIds: [perf.id],
-        title: 'Set time not set',
-        message: 'No start time yet — add it in the Schedule editor to check for overlaps.',
+        artistNames: [name],
+        title: `${name}: set time not set`,
+        message: `No start time for ${name} yet — add it in the Schedule editor to check for overlaps.`,
         usesEstimatedTime: false,
         actions: [],
       });
@@ -114,9 +127,11 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
         type: 'unknown-end',
         severity: 'info',
         performanceIds: [perf.id],
-        title: 'End time unknown',
+        artistNames: [name],
+        title: `${name}: end time unknown`,
         message:
-          'No end time and nothing scheduled after it on this stage, so overlap can only be estimated from the start time.',
+          `${name} has no end time and nothing scheduled after it on this stage, ` +
+          'so overlap can only be estimated from the start time.',
         usesEstimatedTime: false,
         actions: [],
       });
@@ -132,6 +147,7 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
       start: hh(a.perf.startTime!),
       end: ends.get(a.perf.id)!,
       stage: a.perf.stageId ? ctx.locationById.get(a.perf.stageId) : undefined,
+      artistName: nameOf(a.perf),
     }))
     .sort((x, y) => x.start - y.start);
 
@@ -150,11 +166,15 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
       if (overlaps) {
         const bothMustSee =
           a.sel.priority === 'must-see' && b.sel.priority === 'must-see';
+        // A split plan IS a resolution. The sets still overlap on paper, so
+        // the card stays (with the real times), but it stops shouting.
+        const split = hasSplit(a.sel) && hasSplit(b.sel);
         conflicts.push(
-          buildOverlap(a, b, bothMustSee, usesEstimated),
+          buildOverlap(a, b, bothMustSee, usesEstimated, split),
         );
         // Undecided attendance on an overlapping pair.
         if (
+          !split &&
           a.sel.attendanceDecision === 'undecided' &&
           b.sel.attendanceDecision === 'undecided'
         ) {
@@ -163,8 +183,11 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
             type: 'undecided-attendance',
             severity: 'warn',
             performanceIds: [a.perf.id, b.perf.id],
-            title: 'No decision yet',
-            message: `You haven't chosen between these overlapping sets. Pick one to attend so your plan and meetups stay accurate.`,
+            artistNames: [a.artistName, b.artistName],
+            title: `${a.artistName} or ${b.artistName}?`,
+            message:
+              `You haven't chosen between ${a.artistName} and ${b.artistName}. ` +
+              'Pick one to attend — or plan to catch part of both — so your plan and meetups stay accurate.',
             usesEstimatedTime: usesEstimated,
             actions: attendActions(a, b),
           });
@@ -181,13 +204,13 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
             type: 'insufficient-travel',
             severity: 'warn',
             performanceIds: [a.perf.id, b.perf.id],
-            title: 'Tight walk between sets',
+            artistNames: [a.artistName, b.artistName],
+            title: `${a.artistName} to ${b.artistName} may be too tight`,
             message:
-              `A set ends around ${formatMin(aEnd)} at ${a.stage.shortName ?? a.stage.name}, ` +
-              `and the next starts ${formatMin(b.start)} at ${b.stage.shortName ?? b.stage.name}. ` +
+              `${a.artistName} ends around ${formatMin(aEnd)} at ${a.stage.shortName ?? a.stage.name}, ` +
+              `and ${b.artistName} starts ${formatMin(b.start)} at ${b.stage.shortName ?? b.stage.name}. ` +
               `Only ${formatDuration(gap)} between them but the walk is about ${formatDuration(t.minutes)} ` +
-              `(${a.end.kind !== 'exact' ? 'estimated end' : 'exact end'}, approximate walk). ` +
-              `These may not be realistically compatible.`,
+              `(${a.end.kind !== 'exact' ? 'estimated end' : 'exact end'}, approximate walk).`,
             usesEstimatedTime: usesEstimated,
             actions: attendActions(a, b),
           });
@@ -199,13 +222,17 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
   // Back-to-back stamina: 3+ sets each starting within 10 min of the prior end.
   const runs = findBackToBackRuns(scheduled, 10);
   for (const run of runs) {
+    const names = run.map((r) => r.artistName);
     conflicts.push({
       id: `b2b-${run.map((r) => r.perf.id).join('-')}`,
       type: 'back-to-back',
       severity: 'info',
       performanceIds: run.map((r) => r.perf.id),
+      artistNames: names,
       title: `${run.length} sets back-to-back`,
-      message: `You have ${run.length} sets in a row with little downtime. Consider a break or a meetup in the middle.`,
+      message:
+        `${listNames(names)} run back-to-back with little downtime. ` +
+        'Consider a break, food, or a meetup in the middle.',
       usesEstimatedTime: run.some((r) => r.end.kind !== 'exact'),
       actions: [],
     });
@@ -219,35 +246,52 @@ function buildOverlap(
   b: Scheduled,
   bothMustSee: boolean,
   usesEstimated: boolean,
+  split: boolean,
 ): Conflict {
   const higher = PRIORITY_RANK[a.sel.priority] <= PRIORITY_RANK[b.sel.priority] ? a : b;
-  const aName = a.stage?.shortName ?? a.stage?.name ?? 'a stage';
-  const bStageName = b.stage?.shortName ?? b.stage?.name ?? 'a stage';
+  const aStage = a.stage?.shortName ?? a.stage?.name ?? 'a stage';
+  const bStage = b.stage?.shortName ?? b.stage?.name ?? 'a stage';
   return {
     id: `overlap-${a.perf.id}-${b.perf.id}`,
-    type: bothMustSee ? 'must-see-conflict' : 'overlap',
-    severity: bothMustSee ? 'high' : 'warn',
+    type: bothMustSee && !split ? 'must-see-conflict' : 'overlap',
+    severity: split ? 'info' : bothMustSee ? 'high' : 'warn',
     performanceIds: [a.perf.id, b.perf.id],
-    title: bothMustSee ? 'Two Must-See sets clash' : 'Overlapping sets',
-    message:
-      `These overlap: one at ${formatMin(a.start)} (${aName}) and one at ${formatMin(b.start)} (${bStageName}). ` +
-      (usesEstimated ? 'Overlap uses an estimated end time. ' : 'Based on exact times. ') +
-      (bothMustSee
-        ? 'Both are marked Must-See — you can only catch part of each.'
-        : `Higher priority right now: ${higher === a ? aName : bStageName}.`),
+    artistNames: [a.artistName, b.artistName],
+    // Stage + time alone forced the reader to reconstruct which band was
+    // which mid-festival. The bands are the decision; lead with them.
+    title: split
+      ? `${a.artistName} and ${b.artistName}: split plan set`
+      : `${a.artistName} conflicts with ${b.artistName}`,
+    message: split
+      ? `${a.artistName} starts at ${formatMin(a.start)} at ${aStage} and ${b.artistName} ` +
+        `at ${formatMin(b.start)} at ${bStage}. You've planned to catch part of each — ` +
+        'My Day shows the trimmed times.'
+      : `${a.artistName} starts at ${formatMin(a.start)} at ${aStage}. ` +
+        `${b.artistName} starts at ${formatMin(b.start)} at ${bStage}. ` +
+        (usesEstimated ? 'The overlap uses an estimated end time. ' : 'Based on exact times. ') +
+        (bothMustSee
+          ? `Both are marked Must-See — you can only catch part of each.`
+          : `Higher priority right now: ${higher.artistName}.`),
     usesEstimatedTime: usesEstimated,
     actions: attendActions(a, b),
   };
 }
 
 function attendActions(a: Scheduled, b: Scheduled): ConflictAction[] {
-  const aFirst = a.start <= b.start;
+  const ids = [a.perf.id, b.perf.id];
   return [
-    { kind: 'attend', label: `Attend the ${aFirst ? 'first' : 'second'} set`, attendId: a.perf.id, performanceIds: [a.perf.id, b.perf.id] },
-    { kind: 'attend', label: `Attend the ${aFirst ? 'second' : 'first'} set`, attendId: b.perf.id, performanceIds: [a.perf.id, b.perf.id] },
-    { kind: 'undecided', label: 'Keep both undecided', performanceIds: [a.perf.id, b.perf.id] },
-    { kind: 'ignore', label: 'Ignore warning', performanceIds: [a.perf.id, b.perf.id] },
+    { kind: 'attend', label: `Attend ${a.artistName}`, attendId: a.perf.id, performanceIds: ids },
+    { kind: 'attend', label: `Attend ${b.artistName}`, attendId: b.perf.id, performanceIds: ids },
+    { kind: 'split', label: 'Catch part of both', performanceIds: ids },
+    { kind: 'undecided', label: 'Keep both undecided', performanceIds: ids },
+    { kind: 'ignore', label: 'Ignore warning', performanceIds: ids },
   ];
+}
+
+/** "A, B and C" — used where a run of sets is described. */
+function listNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? 'These sets';
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
 function findBackToBackRuns(scheduled: Scheduled[], gapThreshold: number): Scheduled[][] {

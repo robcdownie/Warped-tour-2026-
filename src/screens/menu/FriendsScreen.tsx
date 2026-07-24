@@ -6,17 +6,18 @@ import { FriendAvatar } from '@/components/FriendAvatar';
 import { ExportPanel } from '@/components/ExportPanel';
 import { ImportPanel } from '@/components/ImportPanel';
 import { useApp } from '@/store/appStore';
+import { usePlanStatuses } from '@/hooks/usePlanStatus';
+import { planStatusLabel, planStatusBadge } from '@/domain/planStatus';
 import { encodeSelections } from '@/domain/share/payloads';
 import { timestampSlug } from '@/domain/share/files';
-import { formatRelative } from '@/domain/time';
 
 export function FriendsScreen() {
   const users = useApp((s) => s.users);
   const selections = useApp((s) => s.selections);
   const activeUserId = useApp((s) => s.settings.activeUserId);
-  const friendImports = useApp((s) => s.settings.friendImports);
   const updateSettings = useApp((s) => s.updateSettings);
   const putUser = useApp((s) => s.putUser);
+  const plans = usePlanStatuses();
 
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -103,9 +104,8 @@ export function FriendsScreen() {
         </h2>
         <ul className="space-y-3">
           {users.map((u) => {
-            const meta = friendImports[u.id];
+            const info = plans.byUser.get(u.id)!;
             const isMe = u.id === activeUserId;
-            const count = selections.filter((s) => s.userId === u.id && s.selected).length;
             return (
               <li key={u.id} className="flex items-center gap-3">
                 <label className="relative cursor-pointer">
@@ -129,19 +129,29 @@ export function FriendsScreen() {
                         You
                       </span>
                     )}
+                    <span
+                      className={cx(
+                        'rounded-full px-1.5 text-[10px] font-bold',
+                        info.status === 'placeholder'
+                          ? 'bg-[var(--surface-sunken)] text-muted'
+                          : info.status === 'stale'
+                            ? 'bg-warp-warn/20 text-warn'
+                            : 'bg-warp-ok/15 text-ok',
+                      )}
+                    >
+                      {planStatusBadge(info.status)}
+                    </span>
                   </div>
-                  <div className="text-[12px] text-secondary">
-                    {isMe ? (
-                      `${count} bands on this device`
-                    ) : meta ? (
-                      <span className="flex items-center gap-1">
-                        <Check size={12} className="text-warp-ok" aria-hidden />
-                        {meta.selectionCount} bands · updated {formatRelative(meta.importedAt)}
-                      </span>
-                    ) : (
-                      <span className="text-muted">Not imported yet</span>
-                    )}
+                  <div className="flex items-center gap-1 text-[12px] text-secondary">
+                    {info.status === 'imported' && <Check size={12} className="text-warp-ok" aria-hidden />}
+                    {planStatusLabel(info)}
                   </div>
+                  {/* The whole point of the distinction, said out loud. */}
+                  {!info.eligible && !isMe && (
+                    <div className="text-[11px] text-muted">
+                      Left out of group timelines, meetups and free-time — unknown, not free.
+                    </div>
+                  )}
                 </div>
               </li>
             );

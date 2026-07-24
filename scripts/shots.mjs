@@ -127,6 +127,52 @@ async function walk(browser, base, vp) {
   await page.goto(base + BASE, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
   await page.reload({ waitUntil: 'domcontentloaded' });
+
+  // First run lands on the welcome flow. Capture all four steps at this
+  // viewport (they're the screens Ari and Morgan meet first, and the SE has
+  // the least room for them), then finish setup and continue as normal.
+  screen = 'onboarding';
+  const onboarding = await page
+    .waitForSelector('text=Plan Warped Tour with your crew', { timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  if (onboarding) {
+    await page.waitForTimeout(500);
+    await shoot('onboarding-1-purpose', { full: true });
+    if (await tap('button:has-text("Get Started")')) {
+      await page.waitForTimeout(400);
+      await shoot('onboarding-2-who');
+      if (await tap('button:has-text("Ari")')) {
+        await page.waitForTimeout(300);
+        await shoot('onboarding-2-who-picked');
+        if (await tap('button:has-text("Continue as Ari")')) {
+          await page.waitForTimeout(900);
+          await shoot('onboarding-3-offline', { full: true });
+          // The button reads "Prepare for Offline Use" on a cold cache and
+          // "Check again" once the SW already primed it on the boot reload.
+          if (
+            (await tap('button:has-text("Prepare for Offline Use")', 2000)) ||
+            (await tap('button:has-text("Check again")', 2000))
+          ) {
+            await page.waitForTimeout(2000);
+            await shoot('onboarding-3-offline-ready', { full: true });
+          }
+          // "Continue" when ready, "Skip for now" when the checks didn't pass.
+          if (!(await tap('button:has-text("Continue")', 2000))) {
+            await tap('button:has-text("Skip for now")', 2000);
+          }
+          await page.waitForTimeout(500);
+          await shoot('onboarding-4-plan', { full: true });
+        }
+      }
+    }
+    // Whatever happened above, land on the real app as Robbie for the rest.
+    await page.evaluate(async () => {
+      await window.__WLB__?.completeOnboarding('robbie');
+    }).catch(() => {});
+    await page.waitForTimeout(400);
+  }
+
   await page.waitForSelector('nav[aria-label="Primary"]', { timeout: 15000 }).catch(() =>
     note(vp.name, screen, 'selector-missing', 'primary nav'),
   );

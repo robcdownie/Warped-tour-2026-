@@ -13,7 +13,7 @@ import type {
   HistoryEntry,
   BackupSnapshot,
 } from '@/domain/types';
-import { DEFAULT_SETTINGS } from '@/domain/settings';
+import { DEFAULT_SETTINGS, mergeSettings } from '@/domain/settings';
 
 // A thin repository over IndexedDB. All screens go through the store, which
 // goes through this. Every write is awaited so data is durable before UI reacts.
@@ -158,8 +158,8 @@ export class Repo {
   // ---- settings ---------------------------------------------------------
   async getSettings(): Promise<AppSettings> {
     const row = await (await this.db()).get('settings', 'app');
-    if (!row) return { ...DEFAULT_SETTINGS };
-    return { ...DEFAULT_SETTINGS, ...(row.value as Partial<AppSettings>) };
+    if (!row) return { ...DEFAULT_SETTINGS, schedule: { ...DEFAULT_SETTINGS.schedule }, map: { ...DEFAULT_SETTINGS.map } };
+    return mergeSettings(row.value as Partial<AppSettings>);
   }
   async putSettings(s: AppSettings): Promise<void> {
     await (await this.db()).put('settings', { key: 'app', value: s });

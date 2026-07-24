@@ -170,3 +170,54 @@ export function allEssentialPass(results: TestResult[]): boolean {
   const essential = results.filter((r) => r.essential);
   return essential.length > 0 && essential.every((r) => r.pass);
 }
+
+/**
+ * Plain-language groups for the onboarding step. Onboarding must not say
+ * "service worker", "Cache Storage" or "IndexedDB" — Ari and Morgan shouldn't
+ * need to know what those are to get a phone ready.
+ */
+export const FRIENDLY_GROUPS: { id: string; label: string; testIds: string[] }[] = [
+  { id: 'app', label: 'App files', testIds: ['sw', 'shell', 'reopen'] },
+  { id: 'map', label: 'Festival map', testIds: ['map'] },
+  { id: 'lineup', label: 'Band lineup', testIds: ['artists', 'stages'] },
+  { id: 'storage', label: 'Local storage', testIds: ['idb'] },
+];
+
+export interface FriendlyGroupResult {
+  id: string;
+  label: string;
+  pass: boolean;
+}
+
+export function friendlyGroups(results: TestResult[]): FriendlyGroupResult[] {
+  const byId = new Map(results.map((r) => [r.id, r]));
+  return FRIENDLY_GROUPS.map((g) => ({
+    id: g.id,
+    label: g.label,
+    pass: g.testIds.every((t) => byId.get(t)?.pass ?? false),
+  }));
+}
+
+/**
+ * Warm everything the app needs with no signal, then re-run the checks.
+ *
+ * Requesting the map and the start URL while online pulls them through the
+ * service worker's runtime cache; persistent storage asks the OS not to evict
+ * the database. Both are best-effort — the returned results are what actually
+ * passed, never what we hoped would.
+ */
+export async function prepareForOffline(): Promise<TestResult[]> {
+  try {
+    if ('serviceWorker' in navigator) {
+      await navigator.serviceWorker.ready.catch(() => undefined);
+    }
+  } catch {
+    /* unsupported browser — the checks below will report it honestly */
+  }
+  await Promise.allSettled([
+    fetch(MAP_IMAGE_URL, { cache: 'reload' }),
+    fetch(BASE_URL, { cache: 'reload' }),
+    navigator.storage?.persist?.() ?? Promise.resolve(false),
+  ]);
+  return runOfflineTests();
+}

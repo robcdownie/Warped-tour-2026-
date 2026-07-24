@@ -6,11 +6,16 @@ import { SUNDAY_ARTISTS } from './artists-sunday';
 import { UNPLUGGED_APPEARANCES } from './artists-unplugged';
 import { STAGES } from './stages';
 import { NAMED_LOCATIONS } from './locations';
+import { AMENITY_LOCATIONS } from './amenities';
 import { SEED_USERS } from './users';
+import { applyLineupMigrations, LINEUP_REVISION } from './lineupMigrations';
 
 // Bump when the seed data shape changes. Seeding is idempotent: it adds/updates
 // seed records by id but NEVER overwrites user-entered schedule fields.
-export const SEED_VERSION = 4;
+// v5: performances carry officialStatus / sourceRevision for lineup migrations.
+// v6: amenity pins (water, restrooms, First Aid, food, lockers…) seeded from
+//     the festival map artwork — they used to be a legend with no pins.
+export const SEED_VERSION = 6;
 
 /**
  * One-off corrections to earlier seed data. When a name fix changes a seed id,
@@ -66,6 +71,9 @@ export function buildSeed(): SeedBundle {
       endTime: null,
       estimatedEndTime: null,
       scheduleStatus: 'time-pending',
+      officialStatus: 'confirmed',
+      sourceRevision: LINEUP_REVISION,
+      verifiedAt: null,
     });
   }
 
@@ -82,6 +90,9 @@ export function buildSeed(): SeedBundle {
       endTime: null,
       estimatedEndTime: null,
       scheduleStatus: 'time-pending',
+      officialStatus: 'confirmed',
+      sourceRevision: LINEUP_REVISION,
+      verifiedAt: null,
     });
   }
 
@@ -101,10 +112,13 @@ export function buildSeed(): SeedBundle {
       endTime: null,
       estimatedEndTime: null,
       scheduleStatus: 'time-pending',
+      officialStatus: 'confirmed',
+      sourceRevision: LINEUP_REVISION,
+      verifiedAt: null,
     });
   }
 
-  const locations: MapLocation[] = [...STAGES, ...NAMED_LOCATIONS];
+  const locations: MapLocation[] = [...STAGES, ...NAMED_LOCATIONS, ...AMENITY_LOCATIONS];
 
   return { artists: [...artists.values()], performances, locations };
 }
@@ -130,9 +144,21 @@ export async function seedDatabase(repo: Repo): Promise<void> {
   if (artistsToWrite.length) await repo.putArtists(artistsToWrite);
 
   // Performances — create missing; preserve user-entered schedule on existing.
+  // Rows seeded before v5 get backfilled with lineup-lifecycle fields so the
+  // schedule-completeness math can exclude cancelled/removed sets.
   const existingPerf = new Map((await repo.allPerformances()).map((p) => [p.id, p]));
   const perfToWrite = bundle.performances.filter((p) => !existingPerf.has(p.id));
+  const perfToBackfill = bundle.performances
+    .map((p) => existingPerf.get(p.id))
+    .filter((p): p is Performance => !!p && p.officialStatus === undefined)
+    .map((p) => ({
+      ...p,
+      officialStatus: 'confirmed' as const,
+      sourceRevision: LINEUP_REVISION,
+      verifiedAt: p.verifiedAt ?? null,
+    }));
   if (perfToWrite.length) await repo.putPerformances(perfToWrite);
+  if (perfToBackfill.length) await repo.putPerformances(perfToBackfill);
 
   // Locations — create missing seed pins only.
   const existingLoc = new Map((await repo.allLocations()).map((l) => [l.id, l]));
@@ -171,6 +197,10 @@ export async function seedDatabase(repo: Repo): Promise<void> {
     }
     if (r.oldArtist !== r.newArtist) await repo.deleteArtist(r.oldArtist);
   }
+
+  // Versioned lineup corrections (day moves, cancellations, late additions).
+  // Runs after seeding so newly-added rows exist for 'add' notices.
+  await applyLineupMigrations(repo);
 
   await repo.putMeta('seedVersion', SEED_VERSION);
   await repo.putMeta('schemaVersion', 1);

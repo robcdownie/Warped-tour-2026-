@@ -17,6 +17,10 @@ import type {
   AppSettings,
   Priority,
   AttendanceDecision,
+  DayId,
+  ScheduleProvenance,
+  MapMeta,
+  TipId,
 } from '@/domain/types';
 import { selectionKey } from '@/db/schema';
 import { commitImport, rollbackImport } from '@/domain/share/importCommit';
@@ -56,6 +60,15 @@ interface AppState {
 
   // settings
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
+  updateScheduleMeta: (patch: Partial<ScheduleProvenance>) => Promise<void>;
+  updateMapMeta: (patch: Partial<MapMeta>) => Promise<void>;
+  /** Mark a festival day's set times as fully entered (or undo that). */
+  markDayComplete: (day: DayId, verifiedBy: string) => Promise<void>;
+  unmarkDayComplete: (day: DayId) => Promise<void>;
+  dismissTip: (tip: TipId) => Promise<void>;
+  postponeSetupStep: (step: string) => Promise<void>;
+  completeOnboarding: (activeUserId: string) => Promise<void>;
+  restartOnboarding: () => Promise<void>;
 
   // selections
   getSelection: (userId: string, performanceId: string) => Selection | undefined;
@@ -69,6 +82,12 @@ interface AppState {
   ) => Promise<void>;
   setNotes: (userId: string, performanceId: string, notes: string) => Promise<void>;
   putSelectionsBulk: (list: Selection[]) => Promise<void>;
+  /** Split-set trim: arrive late to / leave early from a set. */
+  setSplitPlan: (
+    userId: string,
+    performanceId: string,
+    plan: { arriveLateMinutes?: number; leaveEarlyMinutes?: number },
+  ) => Promise<void>;
 
   // performances (schedule editing)
   updatePerformance: (perf: Performance, historySummary?: string) => Promise<void>;
@@ -81,6 +100,8 @@ interface AppState {
   // checkins
   putCheckIn: (c: CheckIn) => Promise<void>;
   deleteCheckIn: (id: string) => Promise<void>;
+  /** Drop every check-in for a user, returning them to their planned position. */
+  clearCheckInsFor: (userId: string) => Promise<void>;
 
   // travel overrides
   putTravelOverride: (o: TravelOverride) => Promise<void>;
@@ -118,6 +139,43 @@ function buildLookups(state: {
     userById: new Map(state.users.map((u) => [u.id, u])),
   };
 }
+
+/**
+ * Replace one selection in the in-memory mirror (plan §P1-11).
+ *
+ * Every small edit used to re-read all seven IndexedDB stores, which is
+ * correct but makes rapid starring on an older phone feel laggy. Selections
+ * feed no derived lookup, so patching the array in place is enough — full
+ * reloads are still used for hydration, imports, rollbacks, resets,
+ * migrations and demo-mode switches, where whole stores change at once.
+ */
+function patchSelection(list: Selection[], next: Selection): Selection[] {
+  const i = list.findIndex(
+    (s) => s.userId === next.userId && s.performanceId === next.performanceId,
+  );
+  if (i === -1) return [...list, next];
+  const copy = list.slice();
+  copy[i] = next;
+  return copy;
+}
+
+/** Replace one performance and rebuild only the id lookup it feeds. */
+function patchPerformance(list: Performance[], next: Performance): Performance[] {
+  const i = list.findIndex((p) => p.id === next.id);
+  if (i === -1) return [...list, next];
+  const copy = list.slice();
+  copy[i] = next;
+  return copy;
+}
+
+const BLANK_SELECTION = (userId: string, performanceId: string): Selection => ({
+  userId,
+  performanceId,
+  priority: 'want-to-see',
+  selected: true,
+  attendanceDecision: 'undecided',
+  notes: '',
+});
 
 export const useApp = create<AppState>((set, get) => ({
   hydrated: false,
@@ -214,6 +272,55 @@ export const useApp = create<AppState>((set, get) => ({
     set({ settings: next });
   },
 
+  updateScheduleMeta: async (patch) => {
+    const cur = get().settings;
+    await get().updateSettings({ schedule: { ...cur.schedule, ...patch } });
+  },
+
+  updateMapMeta: async (patch) => {
+    const cur = get().settings;
+    await get().updateSettings({ map: { ...cur.map, ...patch } });
+  },
+
+  markDayComplete: async (day, verifiedBy) => {
+    const ts = new Date().toISOString();
+    await get().updateScheduleMeta(
+      day === 'saturday'
+        ? { saturdayVerifiedAt: ts, saturdayVerifiedBy: verifiedBy }
+        : { sundayVerifiedAt: ts, sundayVerifiedBy: verifiedBy },
+    );
+  },
+
+  unmarkDayComplete: async (day) => {
+    await get().updateScheduleMeta(
+      day === 'saturday'
+        ? { saturdayVerifiedAt: null, saturdayVerifiedBy: null }
+        : { sundayVerifiedAt: null, sundayVerifiedBy: null },
+    );
+  },
+
+  dismissTip: async (tip) => {
+    const cur = get().settings.dismissedTips;
+    if (cur.includes(tip)) return;
+    await get().updateSettings({ dismissedTips: [...cur, tip] });
+  },
+
+  postponeSetupStep: async (step) => {
+    const cur = get().settings.setupPostponed;
+    if (cur.includes(step)) return;
+    await get().updateSettings({ setupPostponed: [...cur, step] });
+  },
+
+  completeOnboarding: async (activeUserId) => {
+    await get().updateSettings({ onboardingComplete: true, activeUserId });
+  },
+
+  restartOnboarding: async () => {
+    // Deliberately does NOT touch selections, schedule or friends — replaying
+    // the guide must never look like a data reset.
+    await get().updateSettings({ onboardingComplete: false, setupCardCollapsed: false });
+  },
+
   getSelection: (userId, performanceId) =>
     get().selections.find(
       (s) => s.userId === userId && s.performanceId === performanceId,
@@ -222,63 +329,61 @@ export const useApp = create<AppState>((set, get) => ({
   toggleSelection: async (userId, performanceId) => {
     const repo = repoFor(get().mode);
     // Read fresh from IndexedDB (not the in-memory mirror) so two mutations
-    // fired before a reloadAll resolves can't clobber each other's fields.
+    // fired before the write resolves can't clobber each other's fields.
     const existing = await repo.getSelection(userId, performanceId);
-    if (existing) {
-      const next = { ...existing, selected: !existing.selected };
-      await repo.putSelection(next);
-    } else {
-      const next: Selection = {
-        userId,
-        performanceId,
-        priority: 'want-to-see',
-        selected: true,
-        attendanceDecision: 'undecided',
-        notes: '',
-      };
-      await repo.putSelection(next);
-    }
-    await get().reloadAll();
+    const next: Selection = existing
+      ? { ...existing, selected: !existing.selected }
+      : BLANK_SELECTION(userId, performanceId);
+    await repo.putSelection(next);
+    set({ selections: patchSelection(get().selections, next) });
   },
 
   setPriority: async (userId, performanceId, priority) => {
     const repo = repoFor(get().mode);
-    const existing = (await repo.getSelection(userId, performanceId)) ?? {
-      userId,
-      performanceId,
-      selected: true,
-      attendanceDecision: 'undecided' as AttendanceDecision,
-      notes: '',
-      priority: 'want-to-see' as Priority,
-    };
-    await repo.putSelection({ ...existing, priority, selected: true });
-    await get().reloadAll();
+    const existing =
+      (await repo.getSelection(userId, performanceId)) ?? BLANK_SELECTION(userId, performanceId);
+    const next: Selection = { ...existing, priority, selected: true };
+    await repo.putSelection(next);
+    set({ selections: patchSelection(get().selections, next) });
   },
 
   setAttendance: async (userId, performanceId, decision, skippedForConflict) => {
     const repo = repoFor(get().mode);
     const existing = await repo.getSelection(userId, performanceId);
     if (!existing) return;
-    await repo.putSelection({
+    const next: Selection = {
       ...existing,
       attendanceDecision: decision,
       skippedForConflict: skippedForConflict ?? existing.skippedForConflict,
-    });
-    await get().reloadAll();
+    };
+    await repo.putSelection(next);
+    set({ selections: patchSelection(get().selections, next) });
   },
 
   setNotes: async (userId, performanceId, notes) => {
     const repo = repoFor(get().mode);
-    const existing = (await repo.getSelection(userId, performanceId)) ?? {
-      userId,
-      performanceId,
+    const existing =
+      (await repo.getSelection(userId, performanceId)) ?? BLANK_SELECTION(userId, performanceId);
+    const next: Selection = { ...existing, notes };
+    await repo.putSelection(next);
+    set({ selections: patchSelection(get().selections, next) });
+  },
+
+  setSplitPlan: async (userId, performanceId, plan) => {
+    const repo = repoFor(get().mode);
+    const existing =
+      (await repo.getSelection(userId, performanceId)) ?? BLANK_SELECTION(userId, performanceId);
+    const next: Selection = {
+      ...existing,
       selected: true,
-      attendanceDecision: 'undecided' as AttendanceDecision,
-      priority: 'want-to-see' as Priority,
-      notes: '',
+      // A split IS a decision — leaving it "undecided" would keep nagging.
+      attendanceDecision: 'attending',
+      skippedForConflict: false,
+      arriveLateMinutes: plan.arriveLateMinutes ?? 0,
+      leaveEarlyMinutes: plan.leaveEarlyMinutes ?? 0,
     };
-    await repo.putSelection({ ...existing, notes });
-    await get().reloadAll();
+    await repo.putSelection(next);
+    set({ selections: patchSelection(get().selections, next) });
   },
 
   putSelectionsBulk: async (list) => {
@@ -309,7 +414,10 @@ export const useApp = create<AppState>((set, get) => ({
       });
     }
     await repo.putPerformance(perf);
-    await get().reloadAll();
+    // Board entry fires one of these per row; a full reload per keystroke was
+    // the worst of the reload cost. Patch the row and rebuild only its lookup.
+    const performances = patchPerformance(get().performances, perf);
+    set({ performances, performanceById: new Map(performances.map((p) => [p.id, p])) });
   },
 
   undoLastScheduleEdit: async () => {
@@ -334,7 +442,15 @@ export const useApp = create<AppState>((set, get) => ({
   putLocation: async (loc) => {
     const repo = repoFor(get().mode);
     await repo.putLocation(loc);
-    await get().reloadAll();
+    // Any pin write IS a calibration — record when, so Map Setup can show
+    // whether the shipped coordinates have been touched.
+    const settings = { ...get().settings };
+    settings.map = { ...settings.map, calibratedAt: new Date().toISOString() };
+    await repo.putSettings(settings);
+    const locations = get().locations.some((l) => l.id === loc.id)
+      ? get().locations.map((l) => (l.id === loc.id ? loc : l))
+      : [...get().locations, loc];
+    set({ locations, locationById: new Map(locations.map((l) => [l.id, l])), settings });
   },
 
   deleteLocation: async (id) => {
@@ -346,13 +462,21 @@ export const useApp = create<AppState>((set, get) => ({
   putCheckIn: async (c) => {
     const repo = repoFor(get().mode);
     await repo.putCheckIn(c);
-    await get().reloadAll();
+    const rest = get().checkins.filter((x) => x.id !== c.id);
+    set({ checkins: [...rest, c] });
   },
 
   deleteCheckIn: async (id) => {
     const repo = repoFor(get().mode);
     await repo.deleteCheckIn(id);
-    await get().reloadAll();
+    set({ checkins: get().checkins.filter((c) => c.id !== id) });
+  },
+
+  clearCheckInsFor: async (userId) => {
+    const repo = repoFor(get().mode);
+    const mine = get().checkins.filter((c) => c.userId === userId);
+    for (const c of mine) await repo.deleteCheckIn(c.id);
+    set({ checkins: get().checkins.filter((c) => c.userId !== userId) });
   },
 
   putTravelOverride: async (o) => {
@@ -407,6 +531,20 @@ export const useApp = create<AppState>((set, get) => ({
     }));
     await repo.putPerformances(cleared);
     await repo.clearStore('history');
+    // A wiped schedule cannot still be "verified complete".
+    const settings = await repo.getSettings();
+    await repo.putSettings({
+      ...settings,
+      schedule: {
+        ...settings.schedule,
+        scheduleSource: null,
+        scheduleImportedAt: null,
+        saturdayVerifiedAt: null,
+        saturdayVerifiedBy: null,
+        sundayVerifiedAt: null,
+        sundayVerifiedBy: null,
+      },
+    });
     await get().reloadAll();
   },
 
@@ -415,6 +553,12 @@ export const useApp = create<AppState>((set, get) => ({
     await repo.clearStore('locations');
     await repo.clearTravelOverrides();
     await seedDatabase(repo); // re-seeds seed locations at seed coordinates
+    // Seed coordinates are the unverified reference layout again.
+    const settings = await repo.getSettings();
+    await repo.putSettings({
+      ...settings,
+      map: { ...settings.map, verified: false, verifiedAt: null, calibratedAt: null },
+    });
     await get().reloadAll();
   },
 

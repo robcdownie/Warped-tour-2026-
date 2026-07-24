@@ -1,41 +1,74 @@
 import { useMemo, useRef, useState } from 'react';
-import { Users, MapPin, CalendarClock, Coffee, AlertTriangle, Star, Handshake } from 'lucide-react';
+import { Users, MapPin, CalendarClock, Coffee, AlertTriangle, Star, Handshake, Scale, HelpCircle } from 'lucide-react';
 import { Screen, Card, cx } from '@/components/ui';
 import { EmptyState } from '@/components/EmptyState';
 import { FriendAvatar } from '@/components/FriendAvatar';
+import { FirstUseTip } from '@/components/FirstUseTip';
+import { PlanStatusRow, MissingPlansNote } from '@/components/PlanStatusRow';
+import { ScheduleStatusStrip, ProvisionalNote } from '@/components/ScheduleStatusStrip';
+import { DecisionBoard } from '@/components/DecisionBoard';
 import { useApp } from '@/store/appStore';
 import { useGroupCtx } from '@/hooks/useGroupCtx';
+import { usePlanStatuses } from '@/hooks/usePlanStatus';
 import { useConflicts } from '@/hooks/useConflicts';
+import { useScheduleStatus, useDayScheduleStatus } from '@/hooks/useScheduleStatus';
 import { groupTimeline, sharedSets, freeWindows, type GroupSlot } from '@/domain/group';
 import { MeetupCard } from '@/components/MeetupCard';
 import { useMeetups } from '@/hooks/useMeetups';
 import { itinerary } from '@/store/selectors';
-import { isScheduleLoaded } from '@/store/selectors';
-import { formatMinutes, formatTime, formatDuration, hhmmToMinutes } from '@/domain/time';
+import { formatMinutes, formatTime, formatDuration, hhmmToMinutes, dayLabel } from '@/domain/time';
 import { EVENT, ART } from '@/config/event';
 import type { DayId, User } from '@/domain/types';
 import type { TabId } from '@/store/appStore';
+import type { MenuRoute } from '@/components/MenuDrawer';
 
-type ViewMode = 'timeline' | 'person' | 'shared' | 'meetups' | 'conflicts' | 'free';
+type ViewMode = 'decisions' | 'timeline' | 'person' | 'shared' | 'meetups' | 'conflicts' | 'free';
 
 const VIEWS: { id: ViewMode; label: string; Icon: typeof Users }[] = [
-  { id: 'timeline', label: 'Timeline', Icon: CalendarClock },
-  { id: 'person', label: 'By Person', Icon: Users },
+  // Unresolved decisions first: they're the only thing here that needs a
+  // conversation rather than a glance (plan §"Recommended hierarchy").
+  { id: 'decisions', label: 'Decisions', Icon: Scale },
   { id: 'shared', label: 'Shared', Icon: Star },
   { id: 'meetups', label: 'Meetups', Icon: Handshake },
-  { id: 'conflicts', label: 'Conflicts', Icon: AlertTriangle },
   { id: 'free', label: 'Free Time', Icon: Coffee },
+  { id: 'timeline', label: 'Timeline', Icon: CalendarClock },
+  { id: 'person', label: 'By Person', Icon: Users },
+  { id: 'conflicts', label: 'Conflicts', Icon: AlertTriangle },
 ];
 
-export function GroupScreen({ onGoTab }: { onGoTab: (t: TabId) => void }) {
-  const performances = useApp((s) => s.performances);
+export function GroupScreen({
+  onGoTab,
+  onOpenMenu,
+}: {
+  onGoTab: (t: TabId) => void;
+  onOpenMenu: (r: MenuRoute) => void;
+}) {
   const [day, setDay] = useState<DayId>('saturday');
-  const [view, setView] = useState<ViewMode>('timeline');
-  const scheduleLoaded = isScheduleLoaded(performances);
+  const [view, setView] = useState<ViewMode>('decisions');
+  const scheduleLoaded = useScheduleStatus().any;
+  const plans = usePlanStatuses();
 
   return (
     <Screen>
       <h1 className="mb-3 font-display text-[22px] text-primary">Group</h1>
+
+      <FirstUseTip id="group">
+        This combines imported plans. Missing plan data does not mean someone is free.
+      </FirstUseTip>
+
+      {/* Who is actually in these numbers. */}
+      <div className="mb-3 space-y-0.5">
+        {plans.all.map((u) => (
+          <PlanStatusRow
+            key={u.id}
+            user={u}
+            info={plans.byUser.get(u.id)!}
+            compact
+            onClick={() => onOpenMenu('friends')}
+          />
+        ))}
+      </div>
+      <MissingPlansNote missing={plans.missing} />
 
       {/* Day toggle */}
       <div className="mb-3 flex rounded-xl bg-[var(--surface-sunken)] p-0.5">
@@ -93,6 +126,8 @@ export function GroupScreen({ onGoTab }: { onGoTab: (t: TabId) => void }) {
         />
       ) : (
         <>
+          <ScheduleStatusStrip day={day} compact />
+          {view === 'decisions' && <DecisionBoard day={day} />}
           {view === 'timeline' && <TimelineView day={day} />}
           {view === 'person' && <PersonView day={day} />}
           {view === 'shared' && <SharedView day={day} />}
@@ -236,12 +271,15 @@ function SharedView({ day }: { day: DayId }) {
   const shared = useMemo(() => sharedSets(day, ctx), [day, ctx]);
   if (!shared.length)
     return (
-      <EmptyState
-        Icon={Star}
-        image={ART.emptyShared}
-        title="No shared sets yet"
-        message="When two or more of you pick the same set, it shows here."
-      />
+      <>
+        <EmptyState
+          Icon={Star}
+          image={ART.emptyShared}
+          title="No shared sets yet"
+          message="When two or more of you pick the same set, it shows here."
+        />
+        <ProvisionalNote day={day} what="shared sets" />
+      </>
     );
   return (
     <div className="space-y-2">
@@ -271,12 +309,15 @@ function MeetupsView({ day }: { day: DayId }) {
   const meetups = useMeetups(day);
   if (!meetups.length)
     return (
-      <EmptyState
-        Icon={Handshake}
-        image={ART.emptyMap}
-        title="No meetups found yet"
-        message="Once a couple of you have set times entered, the app finds windows where you're all free and picks an easy spot."
-      />
+      <>
+        <EmptyState
+          Icon={Handshake}
+          image={ART.emptyMap}
+          title="No meetups found yet"
+          message="Once a couple of you have set times entered, the app finds windows where you're all free and picks an easy spot."
+        />
+        <ProvisionalNote day={day} what="meetup windows" />
+      </>
     );
   return (
     <div className="space-y-2">
@@ -287,59 +328,69 @@ function MeetupsView({ day }: { day: DayId }) {
   );
 }
 
+/**
+ * Conflicts per person. Iterates the eligible users rather than the three
+ * seeded ids, so a fourth crew member (or a phone where only two plans are
+ * imported) stays correct (plan §P1-10).
+ */
 function ConflictsView({ day }: { day: DayId }) {
   const ctx = useGroupCtx();
-  const robbie = useConflicts('robbie').filter((c) => onDay(ctx, c.performanceIds[0], day));
-  const ari = useConflicts('ari').filter((c) => onDay(ctx, c.performanceIds[0], day));
-  const morgan = useConflicts('morgan').filter((c) => onDay(ctx, c.performanceIds[0], day));
-  const byUser: [string, typeof robbie][] = [
-    ['robbie', robbie],
-    ['ari', ari],
-    ['morgan', morgan],
-  ];
-  const anyConflicts = robbie.length + ari.length + morgan.length > 0;
-  if (!anyConflicts)
+  if (!ctx.users.length) {
     return (
       <EmptyState
         Icon={AlertTriangle}
         image={ART.noConflicts}
-        title="No conflicts"
-        message="No one has a clash on their plan this day."
+        title="No plans to check"
+        message="Import at least one plan and conflicts show up here."
       />
     );
+  }
+  return <ConflictsList day={day} users={ctx.users} />;
+}
+
+function ConflictsList({ day, users }: { day: DayId; users: User[] }) {
   return (
     <div className="space-y-3">
-      {byUser.map(([uid, list]) => {
-        const u = ctx.users.find((x) => x.id === uid);
-        if (!u || !list.length) return null;
-        return (
-          <Card key={uid} className="p-3">
-            <div className="mb-2 flex items-center gap-2">
-              <FriendAvatar user={u} size={24} ring />
-              <span className="font-display text-[14px] text-primary">{u.name}</span>
-              <span className="rounded-full bg-warp-pink px-1.5 text-[11px] font-bold text-white">{list.length}</span>
-            </div>
-            <ul className="space-y-1">
-              {list.map((c) => (
-                <li key={c.id} className="flex items-start gap-1.5 text-[13px] text-secondary">
-                  <AlertTriangle size={13} className="mt-0.5 shrink-0 text-warp-warn" aria-hidden />
-                  <span><b>{c.title}.</b> {c.message}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        );
-      })}
+      {users.map((u) => (
+        <UserConflicts key={u.id} user={u} day={day} />
+      ))}
+      <p className="px-1 text-[11px] text-muted">
+        Only people whose plans are on this phone are checked.
+      </p>
     </div>
   );
 }
 
-function onDay(ctx: ReturnType<typeof useGroupCtx>, perfId: string, day: DayId): boolean {
-  return ctx.performanceById.get(perfId)?.day === day;
+/** One card per person — a component so the hook count stays stable. */
+function UserConflicts({ user, day }: { user: User; day: DayId }) {
+  const performanceById = useApp((s) => s.performanceById);
+  const list = useConflicts(user.id).filter(
+    (c) => performanceById.get(c.performanceIds[0])?.day === day,
+  );
+  if (!list.length) return null;
+  return (
+    <Card className="p-3">
+      <div className="mb-2 flex items-center gap-2">
+        <FriendAvatar user={user} size={24} ring />
+        <span className="font-display text-[14px] text-primary">{user.name}</span>
+        <span className="rounded-full bg-warp-pink px-1.5 text-[11px] font-bold text-white">{list.length}</span>
+      </div>
+      <ul className="space-y-1">
+        {list.map((c) => (
+          <li key={c.id} className="flex items-start gap-1.5 text-[13px] text-secondary">
+            <AlertTriangle size={13} className="mt-0.5 shrink-0 text-warp-warn" aria-hidden />
+            <span><b>{c.title}.</b> {c.message}</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
 }
 
 function FreeView({ day }: { day: DayId }) {
   const ctx = useGroupCtx();
+  const plans = usePlanStatuses();
+  const dayInfo = useDayScheduleStatus(day);
   const open = hhmmToMinutes(EVENT.festivalHours.opens);
   const close = hhmmToMinutes(EVENT.festivalHours.closes);
   const windows = useMemo(() => freeWindows(day, ctx, { open, close }), [day, ctx, open, close]);
@@ -347,28 +398,52 @@ function FreeView({ day }: { day: DayId }) {
     user: u,
     windows: windows.filter((w) => w.userId === u.id && w.endMinute - w.startMinute >= 15),
   }));
+
+  const provisional = dayInfo.status !== 'complete';
+
   return (
     <div className="space-y-3">
+      {/* A partial schedule cannot produce a confident free-time claim. */}
+      {provisional && (
+        <p className="flex items-start gap-1.5 rounded-lg bg-warp-warn/15 px-2.5 py-2 text-[12px] leading-relaxed text-warn">
+          <HelpCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
+          {dayLabel(day)} is only {dayInfo.entered} of {dayInfo.expected} sets entered, so these are
+          windows with <b>no known set</b> — not confirmed free time. Picks without a time could
+          land in any of them.
+        </p>
+      )}
       {byUser.map(({ user, windows: ws }) => (
         <Card key={user.id} className="p-3">
           <div className="mb-2 flex items-center gap-2">
             <FriendAvatar user={user} size={24} ring />
             <span className="font-display text-[14px] text-primary">{user.name}</span>
+            {plans.byUser.get(user.id)?.status === 'stale' && (
+              <span className="rounded-full bg-warp-warn/20 px-1.5 text-[10px] font-bold text-warn">
+                may be outdated
+              </span>
+            )}
           </div>
           {ws.length ? (
             <div className="flex flex-wrap gap-1.5">
               {ws.map((w, i) => (
-                <span key={i} className="rounded-lg bg-warp-ok/10 px-2 py-1 text-[12px] font-semibold text-warp-ok">
+                <span
+                  key={i}
+                  className={cx(
+                    'rounded-lg px-2 py-1 text-[12px] font-semibold',
+                    provisional ? 'bg-warp-warn/15 text-warn' : 'bg-warp-ok/10 text-warp-ok',
+                  )}
+                >
                   {formatMinutes(w.startMinute)}–{formatMinutes(w.endMinute)}
                   <span className="ml-1 text-[10px] opacity-70">({formatDuration(w.endMinute - w.startMinute)})</span>
                 </span>
               ))}
             </div>
           ) : (
-            <p className="text-[12px] text-muted">Packed day — no free windows over 15 min.</p>
+            <p className="text-[12px] text-muted">Packed day — no windows over 15 min.</p>
           )}
         </Card>
       ))}
+      <MissingPlansNote missing={plans.missing} />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { AboutScreen } from './AboutScreen';
 import { ScheduleIoScreen } from './ScheduleIoScreen';
 import { FriendsScreen } from './FriendsScreen';
 import { CalibrationScreen } from './CalibrationScreen';
+import { MapSetupScreen } from './MapSetupScreen';
 import { TravelScreen } from './TravelScreen';
 import { EmergencyScreen } from './EmergencyScreen';
 import { SettingsScreen } from './SettingsScreen';
@@ -19,6 +20,7 @@ const TITLES: Record<MenuRoute, string> = {
   'offline-test': 'Offline Test',
   demo: 'Demo Mode',
   about: 'About',
+  'map-setup': 'Map Setup',
   calibration: 'Map Calibration',
   travel: 'Travel & Crowd',
   emergency: 'Emergency Schedule',
@@ -64,6 +66,8 @@ function RouteBody({ route, onNavigate }: { route: MenuRoute; onNavigate: (r: Me
       return <ScheduleIoScreen />;
     case 'friends':
       return <FriendsScreen />;
+    case 'map-setup':
+      return <MapSetupScreen onOpenMenu={onNavigate} />;
     case 'calibration':
       return <CalibrationScreen />;
     case 'travel':

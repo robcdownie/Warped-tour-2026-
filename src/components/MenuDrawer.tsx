@@ -24,6 +24,7 @@ export type MenuRoute =
   | 'offline-test'
   | 'demo'
   | 'about'
+  | 'map-setup'
   | 'calibration'
   | 'travel'
   | 'emergency';
@@ -33,7 +34,9 @@ const ITEMS: { route: MenuRoute; label: string; Icon: typeof Settings; desc: str
   { route: 'schedule-io', label: 'Schedule Import / Export', Icon: Upload, desc: 'Set times as QR, code, or file' },
   { route: 'offline-test', label: 'Offline Test', Icon: ShieldCheck, desc: 'Verify offline readiness' },
   { route: 'travel', label: 'Travel & Crowd', Icon: Footprints, desc: 'Walk-time matrix & crowd level' },
-  { route: 'calibration', label: 'Map Calibration', Icon: MapPinned, desc: 'Admin: reposition map pins' },
+  // Calibration lives inside Map Setup: it's a pre-festival admin task, not
+  // something to reach for while standing in a crowd (plan §P1-12).
+  { route: 'map-setup', label: 'Map Setup', Icon: MapPinned, desc: 'Verify the map & calibrate pins' },
   { route: 'emergency', label: 'Emergency Schedule', Icon: LifeBuoy, desc: 'Plain-text backup plan' },
   { route: 'data', label: 'Backup & Data', Icon: Database, desc: 'Export / import / reset' },
   { route: 'demo', label: 'Demo Mode', Icon: FlaskConical, desc: 'Try the app with sample times' },

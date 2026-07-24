@@ -2,7 +2,9 @@ import { MapPin, Clock, ArrowRight, LogOut, Users } from 'lucide-react';
 import { Card, cx } from './ui';
 import { FriendAvatar } from './FriendAvatar';
 import { useApp } from '@/store/appStore';
-import { formatMinutes, formatDuration } from '@/domain/time';
+import { usePlanStatuses } from '@/hooks/usePlanStatus';
+import { useDayScheduleStatus } from '@/hooks/useScheduleStatus';
+import { formatMinutes, formatDuration, dayLabel } from '@/domain/time';
 import type { MeetupSuggestion } from '@/domain/meetups';
 
 const CONFIDENCE_META = {
@@ -14,7 +16,11 @@ const CONFIDENCE_META = {
 export function MeetupCard({ meetup, highlight }: { meetup: MeetupSuggestion; highlight?: boolean }) {
   const users = useApp((s) => s.users);
   const locationById = useApp((s) => s.locationById);
+  const plans = usePlanStatuses();
+  const dayInfo = useDayScheduleStatus(meetup.day);
   const conf = CONFIDENCE_META[meetup.confidence];
+  const eligibleCount = plans.eligible.length;
+  const missing = plans.missing;
 
   const stageName = (id?: string) => (id ? locationById.get(id)?.shortName ?? locationById.get(id)?.name : undefined);
 
@@ -63,13 +69,28 @@ export function MeetupCard({ meetup, highlight }: { meetup: MeetupSuggestion; hi
             </span>
           );
         })}
-        {meetup.userIds.length === 3 && (
-          <span className="text-[12px] font-semibold text-warp-ok">All three free</span>
+        {/* "All three free" was hardcoded and became a lie the moment a plan
+            wasn't imported or a fourth person joined (plan §P1-10). */}
+        {eligibleCount > 1 && meetup.userIds.length === eligibleCount && (
+          <span className="text-[12px] font-semibold text-warp-ok">Everyone in this plan is free</span>
         )}
       </div>
 
       {/* Why */}
       <p className="mt-2 text-[13px] leading-relaxed text-secondary">{meetup.reason}</p>
+
+      {/* A meetup computed off a partial day is a guess about free time. */}
+      {dayInfo.status !== 'complete' && (
+        <p className="mt-1 text-[12px] font-semibold text-warn">
+          Provisional — {dayLabel(meetup.day)} is {dayInfo.entered} of {dayInfo.expected} sets
+          entered, so these windows may not stay free.
+        </p>
+      )}
+      {missing.length > 0 && (
+        <p className="mt-1 text-[11px] text-muted">
+          Doesn&apos;t include {missing.map((u) => u.name).join(' or ')} — no plan imported.
+        </p>
+      )}
 
       {/* Per-person leave-by */}
       <div className="mt-3 space-y-1 border-t border-subtle pt-2">

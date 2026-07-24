@@ -7,7 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from '@playwright/test';
+import { chromium, webkit, devices } from '@playwright/test';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(root, 'dist');
@@ -31,37 +31,52 @@ function serve() {
 }
 
 const results = [];
+let prefix = '';
 function check(name, cond, detail = '') {
-  results.push({ name, pass: !!cond, detail });
-  console.log(`${cond ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`);
+  const label = prefix ? `[${prefix}] ${name}` : name;
+  results.push({ name: label, pass: !!cond, detail });
+  console.log(`${cond ? 'PASS' : 'FAIL'}  ${label}${detail ? ' — ' + detail : ''}`);
 }
 
-async function main() {
-  const srv = await serve();
-  const base = 'http://localhost:' + srv.address().port + BASE;
+/** First run shows the welcome flow; the harness drives the app behind it. */
+async function skipOnboarding(page) {
+  await page.waitForFunction(() => typeof window.__WLB__ !== 'undefined', null, { timeout: 15000 });
+  await page.evaluate(() => window.__WLB__.completeOnboarding('robbie'));
+  await page.waitForSelector('nav[aria-label="Primary"]', { timeout: 15000 });
+}
+
+/**
+ * Deep functional pass: seeds a day, drives the trust engines, and exercises
+ * offline reload. Runs on Chromium because it's the engine the debug hook and
+ * SW behaviour are tuned against; the render passes below cover WebKit.
+ */
+async function functionalPass(base) {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
   await page.goto(base, { waitUntil: 'networkidle' });
-  await page.waitForSelector('nav[aria-label="Primary"]', { timeout: 15000 });
-
-  // Expose the store on window for driving. The app doesn't export it globally,
-  // so we drive through IndexedDB directly via the app's module graph is not
-  // available; instead we exercise the domain by importing from the served ESM.
-  const out = await page.evaluate(async (baseUrl) => {
-    // Dynamically import the app's built modules is hashed; instead re-run the
-    // domain by reading from window if the app exposed it. Fallback: use the
-    // public API we attached in main. We attach a debug hook below.
-    return typeof window.__WLB__ !== 'undefined';
-  }, base);
 
   // The app exposes a debug hook (added for verification). If missing, skip.
+  const out = await page
+    .waitForFunction(() => typeof window.__WLB__ !== 'undefined', null, { timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
   if (!out) {
     check('debug hook present', false, 'window.__WLB__ not found (build without debug hook)');
-    await browser.close(); srv.close();
-    summarize(); return;
+    await browser.close();
+    return;
   }
+
+  // 0. First run shows the welcome flow before the tabbed UI.
+  const onboardingShown = await page
+    .waitForSelector('text=Plan Warped Tour with your crew', { timeout: 8000 })
+    .then(() => true)
+    .catch(() => false);
+  check('first run shows the welcome flow (plan §First Fix)', onboardingShown);
+  await skipOnboarding(page);
+  const onboardingSticks = await page.evaluate(() => window.__WLB__.settings().onboardingComplete);
+  check('onboarding completion is stored', onboardingSticks);
 
   // 1. Seed loaded.
   const counts = await page.evaluate(() => window.__WLB__.counts());
@@ -89,6 +104,85 @@ async function main() {
   });
   check('schedule persisted to IndexedDB', conflictInfo.scheduleLoaded, `loaded=${conflictInfo.scheduleLoaded}`);
   check('must-see overlap conflict detected', conflictInfo.hasMustSee, `total conflicts=${conflictInfo.total}`);
+
+  // 2b. PARTIAL SCHEDULE (plan §P0-1) — two of ~76 Saturday sets entered must
+  // read as partial, never as a loaded schedule.
+  const partial = await page.evaluate(() => {
+    const W = window.__WLB__;
+    const status = W.scheduleStatus();
+    return {
+      sat: status.saturday.status,
+      satEntered: status.saturday.entered,
+      satExpected: status.saturday.expected,
+      sun: status.sunday.status,
+    };
+  });
+  check(
+    'a barely-entered day reports PARTIAL, not complete (plan §P0-1)',
+    partial.sat === 'partial',
+    `saturday=${partial.sat} ${partial.satEntered}/${partial.satExpected}`,
+  );
+  check('an untouched day reports EMPTY', partial.sun === 'empty', `sunday=${partial.sun}`);
+  check('the two days are tracked independently', partial.sat !== partial.sun);
+
+  const marked = await page.evaluate(async () => {
+    const W = window.__WLB__;
+    await W.markDayComplete('saturday');
+    const after = W.scheduleStatus().saturday.status;
+    await W.unmarkDayComplete('saturday');
+    const undone = W.scheduleStatus().saturday.status;
+    return { after, undone };
+  });
+  check('Mark Day Complete flips a partial day to complete', marked.after === 'complete', `after=${marked.after}`);
+  check('marking complete is reversible', marked.undone === 'partial', `undone=${marked.undone}`);
+
+  // The partial-schedule warning is on screen, not just in the model.
+  await page.click('nav[aria-label="Primary"] button[aria-label="Schedule"]');
+  await page.waitForTimeout(400);
+  const partialCopy = await page
+    .waitForSelector('text=/Partial schedule/i', { timeout: 4000 })
+    .then(() => true)
+    .catch(() => false);
+  check('the UI says the schedule is partial', partialCopy);
+
+  // 2c. PLAN STATUS (plan §P0-2) — a seeded profile with no import must not
+  // count as a person who is free.
+  const planStatus = await page.evaluate(() => {
+    const W = window.__WLB__;
+    const s = W.planStatus();
+    return {
+      robbie: s.robbie.status,
+      robbieEligible: s.robbie.eligible,
+      morgan: s.morgan.status,
+      morganEligible: s.morgan.eligible,
+    };
+  });
+  check('the active user is always eligible', planStatus.robbieEligible && planStatus.robbie === 'local');
+  check(
+    'a friend with no imported plan is a placeholder, not free (plan §P0-2)',
+    planStatus.morgan === 'placeholder' && planStatus.morganEligible === false,
+    `morgan=${planStatus.morgan}`,
+  );
+
+  // 2d. ARTIST NAMES IN CONFLICTS (plan §P0-4).
+  const named = await page.evaluate(() => {
+    const W = window.__WLB__;
+    const c = W.conflicts('robbie').find((x) => x.type === 'must-see-conflict');
+    if (!c) return null;
+    const names = c.artistNames ?? [];
+    return {
+      titleHasBoth: names.length === 2 && names.every((n) => c.title.includes(n)),
+      actionsNameBands: c.actions
+        .filter((a) => a.kind === 'attend')
+        .every((a) => names.some((n) => a.label.includes(n))),
+      noOrdinals: !c.actions.some((a) => /first set|second set/i.test(a.label)),
+      hasSplit: c.actions.some((a) => a.kind === 'split'),
+    };
+  });
+  check('conflict titles name both artists (plan §P0-4)', named?.titleHasBoth, JSON.stringify(named));
+  check('conflict buttons name the actual bands', named?.actionsNameBands);
+  check('no "first set" / "second set" ambiguity remains', named?.noOrdinals);
+  check('a split-set option is offered', named?.hasSplit);
 
   // 3. Export schedule, decode, and confirm it carries the times.
   const roundtrip = await page.evaluate(async () => {
@@ -125,6 +219,60 @@ async function main() {
   check('re-import updates without duplicating (acceptance §30)', importCheck.after2 === importCheck.after1, `after1=${importCheck.after1} after2=${importCheck.after2}`);
   check('friend import metadata recorded', importCheck.hasMeta);
 
+  // 3c. An imported friend becomes eligible; provenance is stamped.
+  const afterImport = await page.evaluate(() => {
+    const W = window.__WLB__;
+    return { ari: W.planStatus().ari };
+  });
+  check(
+    'importing a plan makes that friend eligible',
+    afterImport.ari.eligible && afterImport.ari.status === 'imported',
+    `ari=${afterImport.ari.status}`,
+  );
+
+  // 3d. IMPORT VALIDATION (plan §P0-8) — a decoded code with an unknown stage
+  // must be refused with a readable message, not partially written.
+  const validation = await page.evaluate(async () => {
+    const W = window.__WLB__;
+    const good = W.decode(W.exportSchedule());
+    const okResult = W.validate(good);
+    // Forge an unknown stage and a bad time on a copy of the same payload.
+    const bad = JSON.parse(JSON.stringify(good));
+    bad.data.p[0] = [bad.data.p[0][0], 'stage-that-does-not-exist', '15:00', null];
+    const badStage = W.validate(bad);
+    const badTime = JSON.parse(JSON.stringify(good));
+    badTime.data.p[0] = [badTime.data.p[0][0], badTime.data.p[0][1], '99:99', null];
+    const badTimeResult = W.validate(badTime);
+    return {
+      goodOk: okResult.ok,
+      badStageOk: badStage.ok,
+      badStageMsg: badStage.errors[0]?.message ?? '',
+      badTimeOk: badTimeResult.ok,
+    };
+  });
+  check('a valid schedule code passes validation', validation.goodOk);
+  check('an unknown stage is refused (plan §P0-8)', validation.badStageOk === false, validation.badStageMsg);
+  check(
+    'the refusal is a plain sentence',
+    /unknown stage and cannot be imported/i.test(validation.badStageMsg),
+    validation.badStageMsg,
+  );
+  check('an impossible clock time is refused', validation.badTimeOk === false);
+
+  // 3e. Provenance survives an actual schedule import (plan §P0-5).
+  const provenance = await page.evaluate(async () => {
+    const W = window.__WLB__;
+    const env = W.decode(W.exportSchedule());
+    await W.applyImport(env);
+    const s = W.settings().schedule;
+    return { source: s.scheduleSource, importedAt: s.scheduleImportedAt, revision: s.scheduleRevision };
+  });
+  check(
+    'an imported schedule records who it came from (plan §P0-5)',
+    !!provenance.source && !!provenance.importedAt,
+    `source=${provenance.source} rev=${provenance.revision}`,
+  );
+
   // 4. Reload page (persistence across reload).
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('nav[aria-label="Primary"]');
@@ -142,6 +290,56 @@ async function main() {
     });
   });
 
+  // 5b. STALE CHECK-IN FALLBACK (plan §P0-3). A fresh check-in is the position;
+  // an old one must hand the position back to the schedule and survive only as
+  // history.
+  const staleFallback = await page.evaluate(async () => {
+    const W = window.__WLB__;
+    const st = W.state();
+    // Robbie's schedule puts him at a stage at 15:30 (set 'b' from step 2).
+    const fresh = W.position('robbie', 'saturday', 15 * 60 + 30);
+
+    // Swap the fresh check-in for an old one — the newest check-in always
+    // wins, so both can't be present for this half of the test.
+    await st.deleteCheckIn('e2e-checkin');
+    await st.putCheckIn({
+      id: 'e2e-stale', userId: 'robbie', locationId: 'doordash-stage',
+      customCoordinates: null, source: 'manual',
+      updatedAt: new Date(Date.now() - 48 * 60000).toISOString(),
+    });
+    const stale = W.position('robbie', 'saturday', 15 * 60 + 30);
+
+    // Restore the fresh check-in for the offline-persistence checks below.
+    await st.deleteCheckIn('e2e-stale');
+    await st.putCheckIn({
+      id: 'e2e-checkin', userId: 'robbie', locationId: 'ghost-stage',
+      customCoordinates: null, source: 'manual', updatedAt: new Date().toISOString(),
+    });
+    return {
+      freshSource: fresh.source,
+      freshLoc: fresh.locationId,
+      staleSource: stale.source,
+      staleLoc: stale.locationId,
+      staleHistoryLoc: stale.staleCheckIn?.locationId ?? null,
+      staleAge: stale.staleCheckIn?.ageMinutes ?? null,
+    };
+  });
+  check(
+    'a fresh check-in is the position',
+    staleFallback.freshSource === 'manual' && staleFallback.freshLoc === 'ghost-stage',
+    `source=${staleFallback.freshSource} loc=${staleFallback.freshLoc}`,
+  );
+  check(
+    'a STALE check-in falls back to the planned position (plan §P0-3)',
+    staleFallback.staleSource === 'planned' && staleFallback.staleLoc !== 'doordash-stage',
+    `source=${staleFallback.staleSource} loc=${staleFallback.staleLoc}`,
+  );
+  check(
+    'the stale check-in survives only as history',
+    staleFallback.staleHistoryLoc === 'doordash-stage' && staleFallback.staleAge >= 45,
+    `history=${staleFallback.staleHistoryLoc} age=${staleFallback.staleAge}`,
+  );
+
   // 6. OFFLINE acceptance: ensure SW controls, then go offline and reload.
   const controlled = await page.evaluate(async () => {
     if (!('serviceWorker' in navigator)) return false;
@@ -157,6 +355,11 @@ async function main() {
     .then(() => true)
     .catch(() => false);
   check('app reopens fully OFFLINE (airplane mode)', offlineOk);
+  // Onboarding must not replay after a reload, offline or not.
+  check(
+    'onboarding does not repeat on reopen',
+    offlineOk && !(await page.$('text=Plan Warped Tour with your crew')),
+  );
 
   if (offlineOk) {
     // Navigate every tab offline.
@@ -210,14 +413,117 @@ async function main() {
   });
 
   await browser.close();
-  srv.close();
+}
+
+/**
+ * Render pass: boots the app on a given engine / viewport / colour scheme and
+ * confirms every tab paints without a page error and without the body
+ * scrolling sideways. Cheap, and it's what catches "works on my phone".
+ */
+const RENDER_MATRIX = [
+  { engine: chromium, label: 'chromium se', device: { width: 375, height: 667 }, scheme: 'light' },
+  { engine: chromium, label: 'chromium 16pm dark', device: { width: 440, height: 956 }, scheme: 'dark', safeArea: { top: 59, bottom: 34 } },
+  { engine: webkit, label: 'webkit iphone', device: devices['iPhone 13']?.viewport ?? { width: 390, height: 844 }, scheme: 'light' },
+  { engine: webkit, label: 'webkit se dark', device: { width: 375, height: 667 }, scheme: 'dark' },
+];
+
+async function renderPass(base, cfg) {
+  prefix = cfg.label;
+  let browser;
+  try {
+    browser = await cfg.engine.launch();
+  } catch (e) {
+    // A missing WebKit download shouldn't silently reduce coverage.
+    check('browser launches', false, String(e.message).split('\n')[0]);
+    return;
+  }
+  const ctx = await browser.newContext({
+    viewport: cfg.device,
+    isMobile: true,
+    hasTouch: true,
+    colorScheme: cfg.scheme,
+  });
+  if (cfg.safeArea) {
+    await ctx.addInitScript(({ top, bottom }) => {
+      const apply = () => {
+        document.documentElement.style.setProperty('--safe-top', `${top}px`);
+        document.documentElement.style.setProperty('--safe-bottom', `${bottom}px`);
+      };
+      if (document.documentElement) apply();
+      else document.addEventListener('DOMContentLoaded', apply);
+    }, cfg.safeArea);
+  }
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  const welcome = await page
+    .waitForSelector('text=Plan Warped Tour with your crew', { timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  check('welcome flow renders', welcome);
+
+  if (welcome) {
+    // Onboarding must fit: no dead ends, no horizontal scroll, primary action
+    // reachable. iPhone SE is the tight one.
+    const noSideScroll = await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+    );
+    check('welcome does not scroll sideways', noSideScroll);
+    const primary = await page.$('button:has-text("Get Started")');
+    check('welcome has a clear primary action', !!primary);
+  }
+
+  await skipOnboarding(page).catch(() => {});
+
+  for (const tab of ['Now', 'Bands', 'Schedule', 'Group', 'Map']) {
+    const ok = await page
+      .click(`nav[aria-label="Primary"] button[aria-label="${tab}"]`)
+      .then(() => true)
+      .catch(() => false);
+    await page.waitForTimeout(350);
+    const noSideScroll = await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+    );
+    check(`${tab} renders and fits the viewport`, ok && noSideScroll);
+  }
+
+  // The bottom nav must clear the home indicator in the standalone sim.
+  if (cfg.safeArea) {
+    const clears = await page.evaluate(() => {
+      const nav = document.querySelector('nav[aria-label="Primary"]');
+      if (!nav) return false;
+      return nav.getBoundingClientRect().bottom <= window.innerHeight + 1;
+    });
+    check('bottom nav clears the home indicator', clears);
+  }
+
+  check('no uncaught page errors', errors.length === 0, errors[0] ?? '');
+  await browser.close();
+  prefix = '';
+}
+
+async function main() {
+  const srv = await serve();
+  const base = 'http://localhost:' + srv.address().port + BASE;
+  try {
+    await functionalPass(base);
+    for (const cfg of RENDER_MATRIX) await renderPass(base, cfg);
+  } finally {
+    srv.close();
+  }
   summarize();
 }
 
 function summarize() {
   const failed = results.filter((r) => !r.pass);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
-  if (failed.length) process.exit(1);
+  if (failed.length) {
+    console.log('\nFailed:');
+    for (const f of failed) console.log(`  - ${f.name}${f.detail ? ' — ' + f.detail : ''}`);
+    process.exit(1);
+  }
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

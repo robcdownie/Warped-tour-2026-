@@ -12,6 +12,9 @@ import { GroupScreen } from './screens/GroupScreen';
 import { MapScreen } from './screens/MapScreen';
 import { MenuScreen } from './screens/menu/MenuScreen';
 import { WarpedWordmark } from './components/WarpedWordmark';
+import { OnboardingFlow } from './screens/onboarding/OnboardingFlow';
+import { FestivalScreen } from './screens/FestivalScreen';
+import { LineupNoticeBanner } from './components/LineupNoticeBanner';
 
 export function App() {
   useThemeEffect();
@@ -21,6 +24,8 @@ export function App() {
   const activeTab = useApp((s) => s.activeTab);
   const setTab = useApp((s) => s.setTab);
   const mode = useApp((s) => s.mode);
+  const onboardingComplete = useApp((s) => s.settings.onboardingComplete);
+  const festivalMode = useApp((s) => s.settings.festivalMode);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuRoute, setMenuRoute] = useState<MenuRoute | null>(null);
@@ -51,6 +56,31 @@ export function App() {
     );
   }
 
+  // First run: a short setup flow, not a splash screen. Demo mode keeps its
+  // own settings record, so it never replays production's onboarding.
+  if (mode === 'prod' && !onboardingComplete) {
+    return (
+      <OnboardingFlow
+        onFinish={({ tab, menu }) => {
+          if (menu) openMenuRoute(menu);
+          else goTab(tab ?? 'now');
+        }}
+      />
+    );
+  }
+
+  // Festival Lock Screen: one-handed, answers-in-seconds mode for the day
+  // itself. The full app is one tap away and the menu still works.
+  if (festivalMode && !menuRoute) {
+    return (
+      <div className="surface-app relative flex h-full flex-col">
+        <FestivalScreen onOpenMenu={openMenuRoute} onGoTab={goTab} />
+        <MenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={openMenuRoute} />
+        <UpdateToast />
+      </div>
+    );
+  }
+
   return (
     <div className="surface-app relative flex h-full flex-col">
       <TopBar onMenu={() => setMenuOpen(true)} />
@@ -62,6 +92,7 @@ export function App() {
       )}
 
       <main className="flex-1 overflow-y-auto">
+        <LineupNoticeBanner />
         {menuRoute ? (
           <MenuScreen route={menuRoute} onBack={() => setMenuRoute(null)} onNavigate={setMenuRoute} />
         ) : (
@@ -69,7 +100,7 @@ export function App() {
             {activeTab === 'now' && <NowScreen onOpenMenu={openMenuRoute} onGoTab={goTab} />}
             {activeTab === 'bands' && <BandsScreen />}
             {activeTab === 'schedule' && <ScheduleScreen onOpenMenu={openMenuRoute} />}
-            {activeTab === 'group' && <GroupScreen onGoTab={goTab} />}
+            {activeTab === 'group' && <GroupScreen onGoTab={goTab} onOpenMenu={openMenuRoute} />}
             {activeTab === 'map' && <MapScreen onOpenMenu={openMenuRoute} />}
           </>
         )}

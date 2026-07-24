@@ -1,6 +1,8 @@
-import { AlertTriangle, AlertCircle, Info, Check } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, AlertCircle, Info, Check, Split } from 'lucide-react';
 import type { Conflict, ConflictAction } from '@/domain/conflicts';
 import { useApp } from '@/store/appStore';
+import { SplitSetSheet } from './SplitSetSheet';
 import { Card, cx } from './ui';
 
 // Colors come from theme tokens so they stay readable in light AND dark;
@@ -21,16 +23,24 @@ export function ConflictCard({
   onIgnore?: (c: Conflict) => void;
 }) {
   const setAttendance = useApp((s) => s.setAttendance);
+  const setSplitPlan = useApp((s) => s.setSplitPlan);
   const m = SEVERITY_META[conflict.severity];
+  const [splitting, setSplitting] = useState<string[] | null>(null);
 
   const handle = async (action: ConflictAction) => {
     const ids = action.performanceIds ?? conflict.performanceIds;
     if (action.kind === 'attend' && action.attendId) {
       for (const pid of ids) {
         await setAttendance(userId, pid, pid === action.attendId ? 'attending' : 'skipping', pid !== action.attendId);
+        // Choosing one whole set clears any earlier split trim on it.
+        if (pid === action.attendId) {
+          await setSplitPlan(userId, pid, { arriveLateMinutes: 0, leaveEarlyMinutes: 0 });
+        }
       }
     } else if (action.kind === 'undecided') {
       for (const pid of ids) await setAttendance(userId, pid, 'undecided');
+    } else if (action.kind === 'split') {
+      setSplitting(ids);
     } else if (action.kind === 'ignore') {
       onIgnore?.(conflict);
     }
@@ -72,16 +82,27 @@ export function ConflictCard({
                   'min-h-touch inline-flex items-center gap-1 rounded-lg px-3 text-[13px] font-semibold',
                   a.kind === 'attend'
                     ? 'bg-warp-blue-500 text-white'
-                    : 'border border-subtle bg-[var(--surface-card)] text-secondary',
+                    : a.kind === 'split'
+                      ? 'border border-warp-pink/50 bg-warp-pink/10 text-warp-pink'
+                      : 'border border-subtle bg-[var(--surface-card)] text-secondary',
                 )}
               >
                 {a.kind === 'attend' && <Check size={14} aria-hidden />}
+                {a.kind === 'split' && <Split size={14} aria-hidden />}
                 {a.label}
               </button>
             ))}
           </div>
         )}
       </div>
+
+      {splitting && (
+        <SplitSetSheet
+          userId={userId}
+          performanceIds={splitting}
+          onClose={() => setSplitting(null)}
+        />
+      )}
     </Card>
   );
 }

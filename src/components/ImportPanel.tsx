@@ -5,6 +5,7 @@ import { QrScanner, decodeQrImage } from './QrScanner';
 import { ChunkCollector } from '@/domain/share/chunker';
 import { decodeEnvelope, DecodeError, type Envelope, type PayloadType } from '@/domain/share/codec';
 import { previewImport, type ImportPreview } from '@/domain/share/payloads';
+import { validateEnvelope, validateRawCode, type ValidationIssue } from '@/domain/share/validate';
 import { readTextFile } from '@/domain/share/files';
 import { useApp } from '@/store/appStore';
 
@@ -34,6 +35,9 @@ export function ImportPanel({
   const [env, setEnv] = useState<Envelope | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Blocking validation problems, shown instead of a preview. */
+  const [blocked, setBlocked] = useState<ValidationIssue[]>([]);
+  const [extraWarnings, setExtraWarnings] = useState<ValidationIssue[]>([]);
   const [committed, setCommitted] = useState<{ backupId: number; summary: string } | null>(null);
   const [rolledBack, setRolledBack] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -41,12 +45,31 @@ export function ImportPanel({
 
   const handleCode = (code: string) => {
     setError(null);
+    setBlocked([]);
+    setExtraWarnings([]);
+    const sizeIssue = validateRawCode(code);
+    if (sizeIssue) {
+      setError(sizeIssue.message);
+      return;
+    }
     try {
       const decoded = decodeEnvelope(code);
       if (accept && !accept.includes(decoded.type)) {
         setError(`This is a "${decoded.type}" code, but this screen imports ${accept.join(' / ')}.`);
         return;
       }
+      // Checksum only proves the bytes survived; the FIELDS still have to make
+      // sense before anything reaches IndexedDB (plan §P0-8).
+      const result = validateEnvelope(decoded, {
+        knownPerformanceIds: new Set(performances.map((p) => p.id)),
+        knownStageIds: new Set(locations.filter((l) => l.category === 'stage').map((l) => l.id)),
+        knownLocationIds: new Set(locations.map((l) => l.id)),
+      });
+      if (!result.ok) {
+        setBlocked(result.errors);
+        return;
+      }
+      setExtraWarnings(result.warnings);
       setEnv(decoded);
       setPreview(previewImport(decoded, { users, selections, performances, locations }));
     } catch (e) {
@@ -135,6 +158,31 @@ export function ImportPanel({
     );
   }
 
+  // ----- blocked state: the code decoded but its contents are unusable -----
+  if (blocked.length > 0) {
+    return (
+      <Card className="p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <AlertTriangle size={20} className="text-warp-danger" aria-hidden />
+          <p className="font-display text-[16px] text-primary">This code can&apos;t be imported</p>
+        </div>
+        <ul className="mb-3 space-y-1.5">
+          {blocked.map((issue) => (
+            <li key={issue.code} className="text-[13px] leading-relaxed text-secondary">
+              {issue.message}
+            </li>
+          ))}
+        </ul>
+        <p className="mb-3 text-[12px] text-muted">
+          Nothing on this phone was changed.
+        </p>
+        <Button variant="secondary" className="w-full" onClick={() => setBlocked([])}>
+          Try another code
+        </Button>
+      </Card>
+    );
+  }
+
   // ----- preview state -----
   if (env && preview) {
     return (
@@ -156,13 +204,13 @@ export function ImportPanel({
             </li>
           ))}
         </ul>
-        {preview.warnings.map((w, i) => (
+        {[...preview.warnings, ...extraWarnings.map((w) => w.message)].map((w, i) => (
           <p key={i} className="mb-1.5 flex items-start gap-1.5 text-[12px] text-warp-warn">
             <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden /> {w}
           </p>
         ))}
         <div className="mt-3 flex gap-2">
-          <Button variant="secondary" className="flex-1" onClick={() => { setEnv(null); setPreview(null); }}>
+          <Button variant="secondary" className="flex-1" onClick={() => { setEnv(null); setPreview(null); setExtraWarnings([]); }}>
             Cancel
           </Button>
           <Button variant="yellow" className="flex-1" onClick={doCommit}>

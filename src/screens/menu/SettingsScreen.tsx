@@ -1,13 +1,17 @@
-import { Sun, Moon, Smartphone, MapPinned } from 'lucide-react';
-import { Screen, Card, cx } from '@/components/ui';
+import { Sun, Moon, Smartphone, MapPinned, Compass, ListChecks, Maximize2 } from 'lucide-react';
+import { Screen, Card, Button, cx } from '@/components/ui';
 import { FriendAvatar } from '@/components/FriendAvatar';
+import { SetupCard } from '@/components/SetupCard';
 import { useApp } from '@/store/appStore';
 import type { MenuRoute } from '@/components/MenuDrawer';
+import type { TabId } from '@/store/appStore';
 
 export function SettingsScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }) {
   const settings = useApp((s) => s.settings);
   const users = useApp((s) => s.users);
   const updateSettings = useApp((s) => s.updateSettings);
+  const restartOnboarding = useApp((s) => s.restartOnboarding);
+  const setTab = useApp((s) => s.setTab);
   const activeUser = users.find((u) => u.id === settings.activeUserId);
 
   return (
@@ -26,6 +30,53 @@ export function SettingsScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => v
             <div className="text-[12px] text-secondary">This device · tap to switch or add photo</div>
           </div>
         </button>
+      </Card>
+
+      {/* Setup progress stays reachable after it's been tucked away on Now. */}
+      <SetupCard onGoTab={(t: TabId) => setTab(t)} onOpenMenu={onOpenMenu} />
+
+      {/* Festival mode */}
+      <Card className="mb-4 p-4">
+        <h2 className="mb-2 font-display text-[14px] uppercase tracking-wide text-secondary">Festival day</h2>
+        <label className="flex items-center justify-between gap-3 py-1">
+          <span className="flex-1">
+            <span className="flex items-center gap-1.5 text-[14px] font-semibold text-primary">
+              <Maximize2 size={15} className="text-accent" aria-hidden /> Festival mode
+            </span>
+            <span className="block text-[12px] text-muted">
+              One-handed screen: what&apos;s next, when to leave, where the crew is. Everything else
+              moves behind the menu.
+            </span>
+          </span>
+          <Toggle on={settings.festivalMode} onChange={(v) => updateSettings({ festivalMode: v })} />
+        </label>
+      </Card>
+
+      {/* Guidance */}
+      <Card className="mb-4 p-4">
+        <h2 className="mb-3 font-display text-[14px] uppercase tracking-wide text-secondary">Guidance</h2>
+        <Button
+          variant="secondary"
+          className="mb-2 w-full justify-start"
+          onClick={() => void restartOnboarding()}
+        >
+          <Compass size={17} aria-hidden /> Restart welcome guide
+        </Button>
+        <p className="mb-3 text-[12px] leading-relaxed text-muted">
+          Replays the four setup screens. Your bands, schedule, friends and check-ins are not
+          touched.
+        </p>
+        <Button
+          variant="secondary"
+          className="w-full justify-start"
+          onClick={() => void updateSettings({ dismissedTips: [] })}
+          disabled={settings.dismissedTips.length === 0}
+        >
+          <ListChecks size={17} aria-hidden />
+          {settings.dismissedTips.length
+            ? `Show the ${settings.dismissedTips.length} dismissed tips again`
+            : 'No dismissed tips'}
+        </Button>
       </Card>
 
       {/* Appearance */}
@@ -71,13 +122,16 @@ export function SettingsScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => v
         <h2 className="mb-3 font-display text-[14px] uppercase tracking-wide text-secondary">Admin</h2>
         <button
           type="button"
-          onClick={() => onOpenMenu('calibration')}
+          onClick={() => onOpenMenu('map-setup')}
           className="flex w-full items-center gap-3 rounded-xl bg-[var(--surface-sunken)] p-3 text-left"
         >
           <MapPinned size={20} className="text-accent" aria-hidden />
           <div className="flex-1">
-            <div className="text-[14px] font-semibold text-primary">Map calibration</div>
-            <div className="text-[12px] text-secondary">{settings.adminUnlocked ? 'Unlocked' : 'Locked'} · reposition map pins</div>
+            <div className="text-[14px] font-semibold text-primary">Map setup</div>
+            <div className="text-[12px] text-secondary">
+              {settings.map.verified ? 'Verified' : 'Unverified'} ·{' '}
+              {settings.mapEditingEnabled ? 'editing on' : 'editing off'}
+            </div>
           </div>
         </button>
       </Card>

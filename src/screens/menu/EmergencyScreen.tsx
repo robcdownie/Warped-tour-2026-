@@ -17,9 +17,12 @@ export function EmergencyScreen() {
   const turnoverBuffer = useApp((s) => s.settings.turnoverBuffer);
   const satMeetups = useMeetups('saturday');
   const sunMeetups = useMeetups('sunday');
+  const acknowledged = useApp((s) => s.settings.emergencyAcknowledged);
+  const updateSettings = useApp((s) => s.updateSettings);
   const [copied, setCopied] = useState(false);
 
   const user = users.find((u) => u.id === activeUserId);
+  const acknowledge = () => updateSettings({ emergencyAcknowledged: true });
 
   const text = useMemo(() => {
     if (!user) return '';
@@ -58,7 +61,13 @@ export function EmergencyScreen() {
       </Card>
 
       <div className="mb-3 grid grid-cols-2 gap-2">
-        <Button variant="yellow" onClick={() => downloadText(`warped-${activeUserId}-emergency-${timestampSlug()}.txt`, text, 'text/plain')}>
+        <Button
+          variant="yellow"
+          onClick={() => {
+            downloadText(`warped-${activeUserId}-emergency-${timestampSlug()}.txt`, text, 'text/plain');
+            void acknowledge();
+          }}
+        >
           <Download size={16} aria-hidden /> Save .txt
         </Button>
         <Button variant="secondary" onClick={doCopy}>
@@ -66,6 +75,23 @@ export function EmergencyScreen() {
           {copied ? 'Copied' : 'Copy text'}
         </Button>
       </div>
+
+      {/* The setup checklist's last step. Saving the file counts, but so does
+          "I screenshotted it" — the point is that a copy exists off the app. */}
+      {!acknowledged && (
+        <button
+          type="button"
+          onClick={() => void acknowledge()}
+          className="mb-3 flex min-h-touch w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-subtle text-[13px] font-semibold text-secondary active:bg-[var(--press)]"
+        >
+          <Check size={15} aria-hidden /> I&apos;ve saved a copy outside the app
+        </button>
+      )}
+      {acknowledged && (
+        <p className="mb-3 flex items-center justify-center gap-1.5 text-[12px] font-semibold text-ok">
+          <Check size={14} aria-hidden /> Emergency backup marked saved
+        </p>
+      )}
 
       <Card className="p-3">
         <pre className="max-h-[55vh] overflow-auto whitespace-pre-wrap break-words font-mono text-[12px] leading-relaxed text-primary">

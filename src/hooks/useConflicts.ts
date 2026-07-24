@@ -8,6 +8,7 @@ export function useConflicts(userId: string): Conflict[] {
   const selections = useApp((s) => s.selections);
   const performanceById = useApp((s) => s.performanceById);
   const locationById = useApp((s) => s.locationById);
+  const artistById = useApp((s) => s.artistById);
   const allPerformances = useApp((s) => s.performances);
   const crowd = useApp((s) => s.settings.crowdDelay);
   const turnoverBuffer = useApp((s) => s.settings.turnoverBuffer);
@@ -19,6 +20,7 @@ export function useConflicts(userId: string): Conflict[] {
       selections,
       performanceById,
       locationById,
+      artistById,
       allPerformances,
       crowd,
       turnoverBuffer,
@@ -31,6 +33,7 @@ export function useConflicts(userId: string): Conflict[] {
     selections,
     performanceById,
     locationById,
+    artistById,
     allPerformances,
     crowd,
     turnoverBuffer,

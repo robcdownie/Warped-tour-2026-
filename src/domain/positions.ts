@@ -20,14 +20,67 @@ import { ENTRANCE_LOCATION_ID } from '@/config/event';
 export interface PlannedPosition {
   userId: string;
   atMinute: number;
-  kind: 'at-stage' | 'traveling' | 'open' | 'not-arrived' | 'done' | 'checked-in';
+  kind: 'at-stage' | 'traveling' | 'open' | 'not-arrived' | 'done' | 'checked-in' | 'unknown';
   locationId?: string;
   towardLocationId?: string;
   performanceId?: string;
   label: string;
   source: PositionSource;
-  /** For check-ins: minutes since the check-in (for staleness display). */
+  /** For a fresh check-in: minutes since it was made. */
   ageMinutes?: number;
+  /**
+   * A check-in too old to trust. The position above is the planned one; this
+   * is kept purely as historical context ("last seen at…"). Never used to
+   * place the primary marker (plan §P0-3).
+   */
+  staleCheckIn?: {
+    checkInId: string;
+    locationId: string | null;
+    locationName: string | null;
+    ageMinutes: number;
+  };
+}
+
+/** Short, source-accurate badge text. Never communicate state by opacity alone. */
+export function positionBadge(pos: PlannedPosition): string {
+  switch (pos.source) {
+    case 'manual':
+      return `Checked in ${pos.ageMinutes ?? 0}m ago`;
+    case 'stale':
+      return `Stale ${pos.ageMinutes ?? 0}m`;
+    case 'unknown':
+      return 'Plan unknown';
+    default:
+      return pos.kind === 'traveling' ? 'Traveling' : 'Planned';
+  }
+}
+
+/**
+ * Screen-reader label that preserves the real source. "Ari planned at Ghost
+ * Stage" would be a lie when the position came from a manual check-in.
+ */
+export function positionA11yLabel(pos: PlannedPosition, name: string): string {
+  if (pos.source === 'manual') {
+    return `${name}, manual check-in at ${pos.label}, updated ${pos.ageMinutes ?? 0} minutes ago`;
+  }
+  if (pos.source === 'unknown') {
+    return `${name}, plan not imported — position unknown`;
+  }
+  const base = `${name}, planned: ${pos.label}`;
+  return pos.staleCheckIn
+    ? `${base}. Last manual check-in ${pos.staleCheckIn.locationName ?? 'a custom pin'}, ${pos.staleCheckIn.ageMinutes} minutes ago`
+    : base;
+}
+
+/** Placeholder profile: we genuinely do not know where they are. */
+export function unknownPosition(userId: string, atMinute: number): PlannedPosition {
+  return {
+    userId,
+    atMinute,
+    kind: 'unknown',
+    label: 'Plan not imported',
+    source: 'unknown',
+  };
 }
 
 interface Stop {
@@ -154,9 +207,14 @@ export function plannedPosition(
 }
 
 /**
- * Position that honors a fresh manual check-in over the planned position.
- * A check-in older than staleMinutes is treated as stale (spec §25) — we still
- * show it but flag the source as 'stale' and fall back to planned semantics.
+ * Position resolved in strict confidence order (plan §P0-3):
+ *   1. a FRESH manual check-in
+ *   2. the current planned schedule position
+ *   3. a stale check-in — historical context only, never the primary position
+ *
+ * The old behaviour kept a check-in as the primary position forever and merely
+ * relabeled it "stale", so a friend who checked in at Ghost Stage at noon was
+ * still pinned there at 6pm while their own schedule said otherwise.
  */
 export function positionWithCheckin(
   userId: string,
@@ -167,23 +225,48 @@ export function positionWithCheckin(
   staleMinutes: number,
   ctx: Parameters<typeof plannedPosition>[3],
 ): PlannedPosition {
-  const mine = checkins
-    .filter((c) => c.userId === userId)
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
-  const latest = mine[0];
-  if (latest) {
-    const ageMinutes = Math.floor((nowMs - new Date(latest.updatedAt).getTime()) / 60000);
-    const stale = ageMinutes >= staleMinutes;
-    const loc = latest.locationId ? ctx.locationById.get(latest.locationId) : undefined;
+  const latest = latestCheckIn(userId, checkins);
+  if (!latest) return plannedPosition(userId, day, atMinute, ctx);
+
+  const ageMinutes = Math.max(
+    0,
+    Math.floor((nowMs - new Date(latest.updatedAt).getTime()) / 60000),
+  );
+  const loc = latest.locationId ? ctx.locationById.get(latest.locationId) : undefined;
+  const locName = loc ? loc.name : latest.customCoordinates ? 'a custom pin' : null;
+
+  if (ageMinutes < staleMinutes) {
     return {
       userId,
       atMinute,
       kind: 'checked-in',
       locationId: latest.locationId ?? undefined,
-      label: loc ? loc.name : latest.customCoordinates ? 'Custom pin' : 'Checked in',
-      source: stale ? 'stale' : 'manual',
+      label: locName ?? 'Checked in',
+      source: 'manual',
       ageMinutes,
     };
   }
-  return plannedPosition(userId, day, atMinute, ctx);
+
+  // Stale: fall all the way back to the plan, carrying the old check-in as
+  // context so the detail card can still say where they were last seen.
+  const planned = plannedPosition(userId, day, atMinute, ctx);
+  return {
+    ...planned,
+    staleCheckIn: {
+      checkInId: latest.id,
+      locationId: latest.locationId,
+      locationName: locName,
+      ageMinutes,
+    },
+  };
+}
+
+/** Newest check-in for a user, or undefined. */
+export function latestCheckIn(userId: string, checkins: CheckIn[]): CheckIn | undefined {
+  let best: CheckIn | undefined;
+  for (const c of checkins) {
+    if (c.userId !== userId) continue;
+    if (!best || c.updatedAt > best.updatedAt) best = c;
+  }
+  return best;
 }

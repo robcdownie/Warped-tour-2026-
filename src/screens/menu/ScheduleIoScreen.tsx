@@ -4,20 +4,33 @@ import { Screen, Card, cx } from '@/components/ui';
 import { ExportPanel } from '@/components/ExportPanel';
 import { ImportPanel } from '@/components/ImportPanel';
 import { useApp } from '@/store/appStore';
+import { ScheduleStatusStrip } from '@/components/ScheduleStatusStrip';
+import { useScheduleStatus } from '@/hooks/useScheduleStatus';
 import { encodeSchedule } from '@/domain/share/payloads';
 import { timestampSlug } from '@/domain/share/files';
 import { scheduleCompletion } from '@/store/selectors';
+import type { DayId } from '@/domain/types';
 
 export function ScheduleIoScreen() {
   const performances = useApp((s) => s.performances);
   const activeUserId = useApp((s) => s.settings.activeUserId);
+  const provenance = useApp((s) => s.settings.schedule);
+  const status = useScheduleStatus();
   const [tab, setTab] = useState<'export' | 'import'>('import');
 
   const completion = useMemo(() => scheduleCompletion(performances), [performances]);
-  const code = useMemo(
-    () => encodeSchedule(performances, activeUserId, new Date().toISOString()),
-    [performances, activeUserId],
-  );
+  // Revision + verified days travel with the code so the receiving phone can
+  // tell an update from a re-send, and doesn't inherit a stale "complete"
+  // stamp (plan §P0-5).
+  const code = useMemo(() => {
+    const completeDays = (['saturday', 'sunday'] as DayId[]).filter(
+      (d) => status.byDay[d].status === 'complete',
+    );
+    return encodeSchedule(performances, activeUserId, new Date().toISOString(), {
+      revision: provenance.scheduleRevision + 1,
+      completeDays,
+    });
+  }, [performances, activeUserId, provenance.scheduleRevision, status]);
   const scheduledCount = performances.filter((p) => p.startTime && p.stageId).length;
 
   return (
@@ -30,6 +43,10 @@ export function ScheduleIoScreen() {
           <Upload size={15} aria-hidden /> Export
         </Tab>
       </div>
+
+      {/* What this phone currently holds, before importing over it. */}
+      <ScheduleStatusStrip day="saturday" />
+      <ScheduleStatusStrip day="sunday" />
 
       {tab === 'import' ? (
         <>
@@ -48,6 +65,10 @@ export function ScheduleIoScreen() {
               Share the set times you&apos;ve entered so far. {scheduledCount} performances have a stage
               and start time ({completion.percent}% complete). The code contains the actual data, so it
               works with no signal.
+            </p>
+            <p className="mt-1.5 text-[12px] text-muted">
+              Sends as revision {provenance.scheduleRevision + 1}. Days you&apos;ve marked complete
+              are sent as complete; the rest arrive as partial.
             </p>
           </Card>
           <ExportPanel

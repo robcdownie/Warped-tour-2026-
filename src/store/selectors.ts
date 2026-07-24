@@ -16,10 +16,6 @@ export interface JoinedPerformance {
   selection: Selection | undefined;
 }
 
-export function isScheduleLoaded(performances: Performance[]): boolean {
-  return performances.some((p) => p.startTime && p.stageId);
-}
-
 export function scheduleCompletion(performances: Performance[]): {
   main: number;
   scheduledMain: number;

@@ -6,7 +6,8 @@ import { PriorityBadge } from '@/components/PriorityControl';
 import { BandDetailSheet } from './bands/BandDetailSheet';
 import { useApp } from '@/store/appStore';
 import { searchArtists } from '@/domain/matching';
-import { isScheduleLoaded } from '@/store/selectors';
+import { useScheduleStatus } from '@/hooks/useScheduleStatus';
+import { FirstUseTip } from '@/components/FirstUseTip';
 import { formatTime, dayLabel } from '@/domain/time';
 import type { Performance, Priority, DayId } from '@/domain/types';
 
@@ -131,7 +132,7 @@ export function BandsScreen() {
   }, [filtered, artistById]);
 
   const anyFilter = day || type || selState || priority || query;
-  const scheduleLoaded = isScheduleLoaded(performances);
+  const scheduleLoaded = useScheduleStatus().any;
 
   const clearAll = () => {
     setQuery('');
@@ -226,6 +227,10 @@ export function BandsScreen() {
           )}
         </div>
       </div>
+
+      <FirstUseTip id="bands" className="mt-3">
+        Tap the star to add a band. Tap the card to set Must See, Want to See, or Maybe.
+      </FirstUseTip>
 
       {/* Result count. One shared line replaces 183 identical per-card
           "Stage & time pending" rows while no set times exist. */}

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { MapPin, Footprints, CalendarX } from 'lucide-react';
+import { MapPin, Footprints, CalendarX, HelpCircle, Split, Ban } from 'lucide-react';
 import { useApp } from '@/store/appStore';
 import { Card, cx } from '@/components/ui';
 import { EmptyState } from '@/components/EmptyState';
@@ -7,7 +7,8 @@ import { FriendAvatar } from '@/components/FriendAvatar';
 import { PriorityBadge } from '@/components/PriorityControl';
 import { withEffectiveEnds } from '@/domain/endTimes';
 import { travelMinutes, overrideMap } from '@/domain/travel';
-import { formatTime, formatDuration, dayLabel } from '@/domain/time';
+import { attendWindow } from '@/domain/splitSet';
+import { formatTime, formatMinutes, formatDuration, dayLabel } from '@/domain/time';
 import { ART } from '@/config/event';
 import type { DayId, Performance } from '@/domain/types';
 
@@ -27,21 +28,26 @@ export function PersonalSchedule({ day }: { day: DayId }) {
   const ends = useMemo(() => withEffectiveEnds(performances, turnoverBuffer), [performances, turnoverBuffer]);
   const omap = useMemo(() => overrideMap(overrides), [overrides]);
 
-  const items = useMemo(() => {
-    const rows = selections
-      .filter((s) => {
-        if (s.userId !== activeUserId || !s.selected) return false;
-        const p = performanceById.get(s.performanceId);
-        // Unplugged sets count too, once the board has given them a day and a
-        // time — the day+startTime checks already exclude unscheduled ones.
-        return p?.day === day && p.startTime;
-      })
+  const { items, unknown } = useMemo(() => {
+    const mine = selections.filter((s) => {
+      if (s.userId !== activeUserId || !s.selected) return false;
+      const p = performanceById.get(s.performanceId);
+      // Unplugged sets count too, once the board has given them a day.
+      return p?.day === day;
+    });
+    const items = mine
+      .filter((s) => performanceById.get(s.performanceId)!.startTime)
       .map((s) => ({ sel: s, perf: performanceById.get(s.performanceId)! }))
       .sort((a, b) => (a.perf.startTime! < b.perf.startTime! ? -1 : 1));
-    return rows;
+    // Picks with no time yet. These used to vanish from the day entirely,
+    // which made a partial schedule look like a finished one (plan §P0-1).
+    const unknown = mine
+      .filter((s) => !performanceById.get(s.performanceId)!.startTime)
+      .map((s) => ({ sel: s, perf: performanceById.get(s.performanceId)! }));
+    return { items, unknown };
   }, [selections, activeUserId, performanceById, day]);
 
-  if (!items.length) {
+  if (!items.length && !unknown.length) {
     return (
       <EmptyState
         Icon={CalendarX}
@@ -77,6 +83,7 @@ export function PersonalSchedule({ day }: { day: DayId }) {
           travel = { minutes: t.minutes, from: locationById.get(prev.stageId)?.shortName ?? '' };
         }
         const skipping = sel.attendanceDecision === 'skipping';
+        const window = attendWindow(perf, sel, end!);
         prev = perf;
 
         return (
@@ -108,6 +115,15 @@ export function PersonalSchedule({ day }: { day: DayId }) {
                     <MapPin size={13} aria-hidden />
                     {stage?.name ?? 'Stage TBA'}
                   </div>
+                  {window?.partial && (
+                    <div className="mt-0.5 flex items-center gap-1 text-[12px] font-semibold text-warp-pink">
+                      <Split size={12} aria-hidden />
+                      Split plan: {formatMinutes(window.start)}–{formatMinutes(window.end)}
+                      <span className="font-normal text-muted">
+                        ({formatDuration(window.end - window.start)} of the set)
+                      </span>
+                    </div>
+                  )}
                   <div className="mt-1 flex items-center gap-2">
                     {/* Tap cycles going → maybe → skipping. Vocabulary matches
                         the "maybe" badge used in Group views. */}
@@ -160,6 +176,55 @@ export function PersonalSchedule({ day }: { day: DayId }) {
           </div>
         );
       })}
+
+      {/* Picks with no time yet. Listing them is the whole point: an unlisted
+          pick makes the rest of the day look emptier than it is. */}
+      {unknown.length > 0 && (
+        <div className="pt-2">
+          <h3 className="mb-1.5 flex items-center gap-1.5 text-[13px] font-bold uppercase tracking-wide text-warn">
+            <HelpCircle size={14} aria-hidden />
+            {unknown.length} pick{unknown.length === 1 ? '' : 's'} with no time yet
+          </h3>
+          <p className="mb-2 text-[12px] leading-relaxed text-secondary">
+            These are on your {dayLabel(day)} but the app doesn&apos;t know when. Treat the gaps
+            around them as unknown, not free.
+          </p>
+          <div className="space-y-1.5">
+            {unknown.map(({ sel, perf }) => {
+              const artist = artistById.get(perf.artistId);
+              const stage = perf.stageId ? locationById.get(perf.stageId) : undefined;
+              const canceled =
+                perf.officialStatus === 'canceled' || perf.officialStatus === 'removed';
+              return (
+                <Card key={perf.id} className="border-dashed p-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-16 shrink-0 text-center font-display text-[13px] text-muted">
+                      --:--
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-[14px] font-semibold text-primary">
+                          {artist?.name}
+                        </span>
+                        <PriorityBadge priority={sel.priority} />
+                        {canceled && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-warp-danger/15 px-1.5 text-[10px] font-bold text-danger">
+                            <Ban size={9} aria-hidden />
+                            {perf.officialStatus === 'canceled' ? 'Cancelled' : 'Off the bill'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[12px] text-muted">
+                        {stage ? stage.name : 'Stage not set'} · time unknown
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

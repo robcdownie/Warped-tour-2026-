@@ -1,19 +1,23 @@
 import { useMemo, useRef, useState } from 'react';
-import { MapPin, Crosshair, X, Check, Clock, Sparkles, Filter, SlidersHorizontal } from 'lucide-react';
+import { MapPin, Crosshair, X, Check, Clock, Sparkles, Filter, Footprints, TriangleAlert, Trash2 } from 'lucide-react';
 import { Button, cx } from '@/components/ui';
 import { MapCanvas, type MapCanvasHandle } from './map/MapCanvas';
 import { LocationPin, FriendPin, FriendClusterPin } from './map/MapPins';
+import { EssentialsStrip, nearestMatch, type Essential } from './map/EssentialsStrip';
 import { FriendAvatar } from '@/components/FriendAvatar';
+import { FirstUseTip } from '@/components/FirstUseTip';
 import { useApp } from '@/store/appStore';
 import { useGroupCtx } from '@/hooks/useGroupCtx';
-import { useClock } from '@/hooks/useClock';
-import { positionWithCheckin } from '@/domain/positions';
+import { usePlanStatuses } from '@/hooks/usePlanStatus';
+import { useFestivalClock } from '@/hooks/useFestivalClock';
+import { positionWithCheckin, positionBadge, type PlannedPosition } from '@/domain/positions';
 import { locationVisible, stagesWithSelections } from './map/visibility';
 import { FILTER_LABELS, type FilterKey } from './map/markerMeta';
-import { getNow, formatMinutes, hhmmToMinutes, formatRelative } from '@/domain/time';
+import { travelMinutes, overrideMap, MAP_ASPECT } from '@/domain/travel';
+import { formatMinutes, hhmmToMinutes, formatRelative, formatDuration } from '@/domain/time';
 import { EVENT } from '@/config/event';
 import type { MenuRoute } from '@/components/MenuDrawer';
-import type { DayId, MapLocation } from '@/domain/types';
+import type { DayId, MapLocation, User } from '@/domain/types';
 
 const OPEN = hhmmToMinutes(EVENT.festivalHours.opens);
 const CLOSE = hhmmToMinutes(EVENT.festivalHours.closes);
@@ -24,10 +28,14 @@ const FILTER_ORDER: FilterKey[] = [
   'experiences', 'extreme', 'vendors', 'sponsor', 'custom',
 ];
 
+interface FriendPosition {
+  user: User;
+  pos: PlannedPosition;
+  loc?: MapLocation;
+}
+
 export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }) {
-  const now = useClock(30000);
-  const nowInfo = getNow(now);
-  const defaultDay: DayId = nowInfo.day ?? 'saturday';
+  const { now, day: defaultDay, atMinute: liveMinute, live } = useFestivalClock(30000);
 
   const locations = useApp((s) => s.locations);
   const checkins = useApp((s) => s.checkins);
@@ -35,24 +43,28 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
   const performanceById = useApp((s) => s.performanceById);
   const activeUserId = useApp((s) => s.settings.activeUserId);
   const staleMinutes = useApp((s) => s.settings.staleMinutes);
+  const mapMeta = useApp((s) => s.settings.map);
+  const crowd = useApp((s) => s.settings.crowdDelay);
+  const overridesArr = useApp((s) => s.travelOverrides);
   const putCheckIn = useApp((s) => s.putCheckIn);
+  const clearCheckInsFor = useApp((s) => s.clearCheckInsFor);
   const ctx = useGroupCtx();
+  const plans = usePlanStatuses();
 
   // Stages + entrances start explicitly ON (they used to be an invisible
   // "empty set" default, which made the Stages chip look like a no-op — the
   // chips should honestly reflect what's on the map).
   const [active, setActive] = useState<Set<FilterKey>>(new Set(['friends', 'stages', 'entrances']));
   const [matterNow, setMatterNow] = useState(false);
+  const [essential, setEssential] = useState<Essential | null>(null);
   const [day, setDay] = useState<DayId>(defaultDay);
-  const [sliderMin, setSliderMin] = useState<number>(() =>
-    nowInfo.day ? Math.min(CLOSE, Math.max(OPEN, nowInfo.minutes)) : 15 * 60,
-  );
-  const [followNow, setFollowNow] = useState(nowInfo.day != null);
+  const [sliderMin, setSliderMin] = useState<number>(() => (live ? liveMinute : 15 * 60));
+  const [followNow, setFollowNow] = useState(live);
   const [selected, setSelected] = useState<MapLocation | null>(null);
   const [checkInMode, setCheckInMode] = useState(false);
   const mapRef = useRef<MapCanvasHandle>(null);
 
-  const atMinute = followNow && nowInfo.day ? Math.min(CLOSE, Math.max(OPEN, nowInfo.minutes)) : sliderMin;
+  const atMinute = followNow && live ? Math.min(CLOSE, Math.max(OPEN, liveMinute)) : sliderMin;
 
   const selectedStages = useMemo(
     () => stagesWithSelections(selections, performanceById),
@@ -62,8 +74,9 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
   const locFilters = useMemo(() => new Set([...active].filter((k) => k !== 'friends')), [active]);
   const showFriends = active.has('friends') || matterNow;
 
-  // Friend positions at the chosen time.
-  const friendPositions = useMemo(() => {
+  // Friend positions at the chosen time. A person with no imported plan gets
+  // NO pin — an invented position is worse than an absent one (plan §P0-2).
+  const friendPositions = useMemo<FriendPosition[]>(() => {
     return ctx.users.map((u) => {
       const pos = positionWithCheckin(u.id, day, atMinute, checkins, now.getTime(), staleMinutes, {
         selections: ctx.selections,
@@ -84,7 +97,7 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
   // fan-out still half-hid avatars at default zoom, and a hidden pin reads
   // as a lost friend.
   const friendGroups = useMemo(() => {
-    const byLoc = new Map<string, typeof friendPositions>();
+    const byLoc = new Map<string, FriendPosition[]>();
     for (const fp of friendPositions) {
       if (!fp.loc) continue;
       const arr = byLoc.get(fp.loc.id) ?? [];
@@ -109,6 +122,7 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
   const matterAmenity = new Set(['Water Stations', 'Restrooms', 'First Aid']);
 
   const visibleLocations = useMemo(() => {
+    if (essential) return locations.filter(essential.match);
     return locations.filter((loc) => {
       if (matterNow) {
         if (loc.category === 'stage') return selectedStages.has(loc.id);
@@ -117,10 +131,11 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
       }
       return locationVisible(loc, locFilters, selectedStages);
     });
-  }, [locations, matterNow, locFilters, selectedStages]);
+  }, [locations, essential, matterNow, locFilters, selectedStages]);
 
   const toggle = (k: FilterKey) => {
     setMatterNow(false);
+    setEssential(null);
     setActive((prev) => {
       const next = new Set(prev);
       next.has(k) ? next.delete(k) : next.add(k);
@@ -131,6 +146,31 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
   const onLocationTap = (loc: MapLocation) => {
     setSelected(loc);
     mapRef.current?.centerOn(loc.xPercent, loc.yPercent, 2.4);
+  };
+
+  /** My own position, used as the origin for "nearest water" style answers. */
+  const myPosition = friendPositions.find((f) => f.user.id === activeUserId);
+
+  const pickEssential = (e: Essential) => {
+    if (essential?.key === e.key) {
+      setEssential(null);
+      setSelected(null);
+      return;
+    }
+    setEssential(e);
+    setMatterNow(false);
+    // Turn the matching filter chip on so the chip bar tells the truth.
+    setActive((prev) => new Set(prev).add(e.key));
+    const nearest = nearestMatch(
+      locations,
+      e,
+      myPosition?.loc ? { xPercent: myPosition.loc.xPercent, yPercent: myPosition.loc.yPercent } : null,
+      MAP_ASPECT,
+    );
+    if (nearest) {
+      setSelected(nearest);
+      mapRef.current?.centerOn(nearest.xPercent, nearest.yPercent, 2.6);
+    }
   };
 
   const doCheckIn = async (loc: MapLocation | null, coords?: { xPercent: number; yPercent: number }) => {
@@ -150,14 +190,42 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
     .filter((c) => c.userId === activeUserId)
     .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))[0];
 
+  // Walking time from where I am to the selected pin.
+  const omap = useMemo(() => overrideMap(overridesArr), [overridesArr]);
+  const walkToSelected =
+    selected && myPosition?.loc && myPosition.loc.id !== selected.id
+      ? travelMinutes(myPosition.loc, selected, crowd, omap).minutes
+      : null;
+
   return (
     <div className="flex h-full flex-col">
-      {/* Filter bar */}
       <div className="px-3 pt-2">
+        <FirstUseTip id="map">
+          Friend positions come from schedules unless someone manually checks in. Planned positions
+          are not live GPS.
+        </FirstUseTip>
+
+        {/* The map is a traced reference until a human confirms it against the
+            official 2026 map. A cached image is not a verified one. */}
+        {!mapMeta.verified && (
+          <button
+            type="button"
+            onClick={() => onOpenMenu('map-setup')}
+            className="mb-2 flex w-full items-center gap-1.5 rounded-lg bg-warp-warn/15 px-2.5 py-1.5 text-left text-[12px] text-warn"
+          >
+            <TriangleAlert size={13} className="shrink-0" aria-hidden />
+            <span className="flex-1">Reference layout — verify against the official 2026 festival map.</span>
+            <span className="font-bold">Check</span>
+          </button>
+        )}
+
+        {/* One-tap essentials: the most common map needs aren't stages. */}
+        <EssentialsStrip className="mb-2" active={essential?.key ?? null} onPick={pickEssential} />
+
         <div className="no-scrollbar scroll-fade-r flex gap-1.5 overflow-x-auto pb-2">
           <button
             type="button"
-            onClick={() => setMatterNow((v) => !v)}
+            onClick={() => { setMatterNow((v) => !v); setEssential(null); }}
             className={cx(
               'inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border px-3 text-[13px] font-bold',
               matterNow ? 'border-warp-yellow bg-warp-yellow text-warp-ink' : 'border-warp-yellow/60 bg-warp-yellow/10 text-warn',
@@ -176,7 +244,7 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
               aria-pressed={active.has(k)}
               className={cx(
                 'inline-flex min-h-9 shrink-0 items-center rounded-full border px-3 text-[13px] font-semibold',
-                active.has(k) && !matterNow ? 'border-[var(--chip-on-border)] bg-[var(--chip-on)] text-white' : 'border-subtle bg-[var(--surface-card)] text-secondary',
+                active.has(k) && !matterNow && !essential ? 'border-[var(--chip-on-border)] bg-[var(--chip-on)] text-white' : 'border-subtle bg-[var(--surface-card)] text-secondary',
               )}
             >
               {FILTER_LABELS[k]}
@@ -200,7 +268,10 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
               loc={loc}
               labeled={loc.category === 'stage'}
               labelBelow={stageLabelBelow.has(loc.id)}
-              highlighted={loc.category === 'stage' && selectedStages.has(loc.id) && (active.has('selected') || matterNow)}
+              highlighted={
+                (loc.category === 'stage' && selectedStages.has(loc.id) && (active.has('selected') || matterNow)) ||
+                selected?.id === loc.id
+              }
               onClick={() => onLocationTap(loc)}
             />
           ))}
@@ -219,22 +290,12 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
                   key={`cluster-${group[0].loc!.id}`}
                   users={group.map((g) => g.user)}
                   loc={group[0].loc!}
-                  anyStale={group.some((g) => g.pos.source === 'stale')}
+                  sourceSummary={summarizeSources(group)}
                   onClick={() => setSelected(group[0].loc!)}
                 />
               ),
             )}
         </MapCanvas>
-
-        {/* Calibrate shortcut */}
-        <button
-          type="button"
-          onClick={() => onOpenMenu('calibration')}
-          aria-label="Map calibration"
-          className="absolute left-5 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-warp-ink shadow-md active:bg-white"
-        >
-          <SlidersHorizontal size={17} aria-hidden />
-        </button>
 
         {/* Empty hint if map has nothing */}
         {visibleLocations.length === 0 && !showFriends && (
@@ -260,7 +321,10 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
         {selected && (
           <LocationCard
             loc={selected}
-            friendsHere={friendPositions.filter((f) => f.loc?.id === selected.id).map((f) => f.user)}
+            people={friendPositions.filter((f) => f.loc?.id === selected.id)}
+            missing={plans.missing}
+            walkMinutes={walkToSelected}
+            activeUserId={activeUserId}
             onClose={() => setSelected(null)}
             onCheckIn={() => doCheckIn(selected)}
             onRecenter={() => mapRef.current?.centerOn(selected.xPercent, selected.yPercent, 2.6)}
@@ -291,13 +355,16 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
             </span>
           </div>
           <div className="flex-1" />
-          {nowInfo.day && (
+          {live && (
+            /* "Live time" read as live friend tracking — it only ever meant
+               "keep the slider on the current clock" (plan §P1-13). */
             <button
               type="button"
               onClick={() => setFollowNow((v) => !v)}
+              aria-pressed={followNow}
               className={cx('rounded-full px-2 py-1 text-[11px] font-bold', followNow ? 'bg-warp-ok/15 text-warp-ok' : 'bg-[var(--surface-sunken)] text-secondary')}
             >
-              {followNow ? 'Live time' : 'Use now'}
+              {followNow ? 'Following now' : 'Follow current time'}
             </button>
           )}
         </div>
@@ -312,29 +379,55 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
           aria-valuetext={formatMinutes(atMinute)}
           className="w-full accent-warp-pink"
         />
-        <div className="mt-1 flex items-center justify-between">
-          <span className="text-[11px] text-muted">
-            {myCheckin ? `You checked in ${formatRelative(myCheckin.updatedAt)}` : 'Positions are planned, not live.'}
+        <div className="mt-1 flex items-center gap-2">
+          <span className="flex-1 text-[11px] text-muted">
+            {myCheckin
+              ? `You checked in ${formatRelative(myCheckin.updatedAt)}`
+              : 'Positions are planned, not live GPS.'}
           </span>
+          {myCheckin && (
+            <button
+              type="button"
+              onClick={() => void clearCheckInsFor(activeUserId)}
+              className="min-h-touch inline-flex items-center gap-1 px-2 text-[12px] font-semibold text-secondary active:opacity-70"
+            >
+              <Trash2 size={13} aria-hidden /> Clear
+            </button>
+          )}
           <Button variant={checkInMode ? 'primary' : 'secondary'} className="px-3 py-1.5" onClick={() => setCheckInMode((v) => !v)}>
             <MapPin size={15} aria-hidden /> Check in
           </Button>
         </div>
       </div>
-
     </div>
   );
 }
 
+/** "2 planned, 1 checked in" — never left to be inferred from a dim avatar. */
+function summarizeSources(group: FriendPosition[]): string {
+  const manual = group.filter((g) => g.pos.source === 'manual').length;
+  const planned = group.length - manual;
+  const parts: string[] = [];
+  if (manual) parts.push(`${manual} checked in`);
+  if (planned) parts.push(`${planned} planned`);
+  return parts.join(', ');
+}
+
 function LocationCard({
   loc,
-  friendsHere,
+  people,
+  missing,
+  walkMinutes,
+  activeUserId,
   onClose,
   onCheckIn,
   onRecenter,
 }: {
   loc: MapLocation;
-  friendsHere: { id: string; name: string; initials: string; avatar: string | null; colorKey: string }[];
+  people: FriendPosition[];
+  missing: User[];
+  walkMinutes: number | null;
+  activeUserId: string;
   onClose: () => void;
   onCheckIn: () => void;
   onRecenter: () => void;
@@ -344,22 +437,73 @@ function LocationCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="font-display text-[15px] text-primary">{loc.name}</div>
-          <div className="text-[12px] capitalize text-secondary">
+          {/* normal-case on the walk span: the parent capitalizes the category
+              label, which otherwise turns "~4 min walk" into "~4 Min Walk". */}
+          <div className="flex items-center gap-2 text-[12px] capitalize text-secondary">
             {loc.amenityType ?? loc.category.replace('-', ' ')}
+            {walkMinutes != null && (
+              <span className="inline-flex items-center gap-1 normal-case text-muted">
+                <Footprints size={11} aria-hidden /> ~{formatDuration(walkMinutes)} walk
+              </span>
+            )}
           </div>
         </div>
         <button type="button" onClick={onClose} aria-label="Close" className="p-1 text-muted">
           <X size={18} aria-hidden />
         </button>
       </div>
-      {friendsHere.length > 0 && (
-        <div className="mt-2 flex items-center gap-1">
-          <span className="text-[12px] text-secondary">Planned here:</span>
-          {friendsHere.map((u) => (
-            <FriendAvatar key={u.id} user={u as never} size={22} />
+
+      {/* One row per person, each stating its OWN source. Lumping everyone
+          under "Planned here" hid the difference between a live check-in and
+          a guess from the schedule (plan §P1-14). */}
+      {people.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {people.map(({ user, pos }) => (
+            <li key={user.id} className="flex items-center gap-2">
+              <FriendAvatar user={user} size={20} />
+              <span className="text-[12px] font-semibold text-primary">
+                {user.id === activeUserId ? 'You' : user.name}
+              </span>
+              <span className="flex-1 truncate text-[12px] text-secondary">
+                {pos.source === 'manual'
+                  ? `Checked in ${pos.ageMinutes ?? 0} min ago`
+                  : pos.kind === 'traveling'
+                    ? 'Heading here'
+                    : `Planned here${pos.performanceId ? '' : ''}`}
+              </span>
+              <span
+                className={cx(
+                  'shrink-0 rounded-full px-1.5 text-[10px] font-bold',
+                  pos.source === 'manual' ? 'bg-warp-ok/15 text-ok' : 'bg-accent-soft text-accent',
+                )}
+              >
+                {positionBadge(pos)}
+              </span>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
+
+      {/* Stale history is context, not a position. */}
+      {people.some((p) => p.pos.staleCheckIn) && (
+        <ul className="mt-1 space-y-0.5">
+          {people
+            .filter((p) => p.pos.staleCheckIn)
+            .map(({ user, pos }) => (
+              <li key={`stale-${user.id}`} className="text-[11px] text-muted">
+                {user.name}: last manual check-in {pos.staleCheckIn!.locationName ?? 'a custom pin'},{' '}
+                {pos.staleCheckIn!.ageMinutes} min ago
+              </li>
+            ))}
+        </ul>
+      )}
+
+      {missing.length > 0 && (
+        <p className="mt-1.5 text-[11px] text-muted">
+          {missing.map((u) => u.name).join(', ')}: plan not imported — could be anywhere.
+        </p>
+      )}
+
       <div className="mt-3 flex gap-2">
         <Button variant="secondary" className="flex-1 py-1.5" onClick={onRecenter}>
           <Crosshair size={15} aria-hidden /> Recenter

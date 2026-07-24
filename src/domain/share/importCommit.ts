@@ -57,6 +57,10 @@ export async function commitImport(repo: Repo, env: Envelope): Promise<CommitRes
     };
     await repo.putSettings(settings);
     summary = `Imported ${valid.length} selections for ${user.name}.`;
+    if (valid.length === 0) {
+      // An import that carried nothing must not read as "Ari is free all day".
+      summary = `${user.name}'s code had no usable picks — their plan still counts as not imported.`;
+    }
   } else if (env.type === 'schedule') {
     const d = env.data as ScheduleData;
     const perfs = new Map((await repo.allPerformances()).map((p) => [p.id, p]));
@@ -86,10 +90,42 @@ export async function commitImport(repo: Repo, env: Envelope): Promise<CommitRes
       });
     }
     await repo.putPerformances(updated);
+
+    // Provenance: who entered these times, when they left the other phone, and
+    // which revision this is. Without it an imported schedule looks exactly
+    // like one you typed yourself (plan §P0-5).
+    const settings = await repo.getSettings();
+    const importedAt = new Date().toISOString();
+    const nextRevision = typeof d.rev === 'number' ? d.rev : settings.schedule.scheduleRevision + 1;
+    const completeDays = new Set(d.done ?? []);
+    await repo.putSettings({
+      ...settings,
+      schedule: {
+        ...settings.schedule,
+        scheduleSource: env.source,
+        scheduleImportedAt: importedAt,
+        scheduleExportedAt: env.exportedAt,
+        scheduleRevision: nextRevision,
+        // Verification travels with the schedule, attributed to the sender.
+        // Days the sender did NOT mark complete drop back to unverified here —
+        // an update that adds sets must not inherit the old "complete" stamp.
+        saturdayVerifiedAt: completeDays.has('saturday') ? importedAt : null,
+        saturdayVerifiedBy: completeDays.has('saturday') ? env.source : null,
+        sundayVerifiedAt: completeDays.has('sunday') ? importedAt : null,
+        sundayVerifiedBy: completeDays.has('sunday') ? env.source : null,
+      },
+    });
     summary = `Imported set times for ${updated.length} performances.`;
   } else if (env.type === 'coordinates') {
     const locs = coordinatesFromData(env.data as CoordinatesData);
     await repo.putLocations(locs);
+    // Imported pins mean someone calibrated, not that the map was verified —
+    // those are different claims and only a human flips `verified`.
+    const settings = await repo.getSettings();
+    await repo.putSettings({
+      ...settings,
+      map: { ...settings.map, calibratedAt: new Date().toISOString() },
+    });
     summary = `Imported ${locs.length} map coordinates.`;
   } else if (env.type === 'checkin') {
     const c = env.data as CheckIn;

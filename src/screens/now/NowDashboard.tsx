@@ -1,22 +1,30 @@
-import { useMemo } from 'react';
-import { Clock, MapPin, Footprints, ChevronRight, Users, AlertTriangle, Handshake, CalendarClock } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Clock, MapPin, Footprints, ChevronRight, Users, AlertTriangle, Handshake, CalendarClock, Coffee, Maximize2 } from 'lucide-react';
 import { Screen, Card, Button, cx } from '@/components/ui';
 import { EmptyState } from '@/components/EmptyState';
 import { FriendAvatar } from '@/components/FriendAvatar';
 import { MeetupCard } from '@/components/MeetupCard';
+import { SetupCard } from '@/components/SetupCard';
+import { ScheduleStatusStrip } from '@/components/ScheduleStatusStrip';
+import { LeaveByCard, useLeaveBy } from '@/components/LeaveByCard';
+import { FindMyCrew } from '@/components/FindMyCrew';
+import { BreakPlannerCard } from '@/components/BreakPlannerCard';
 import { useApp } from '@/store/appStore';
-import { useClock } from '@/hooks/useClock';
+import { useFestivalClock } from '@/hooks/useFestivalClock';
 import { useGroupCtx } from '@/hooks/useGroupCtx';
+import { usePlanStatuses } from '@/hooks/usePlanStatus';
 import { useConflicts } from '@/hooks/useConflicts';
 import { useMeetups } from '@/hooks/useMeetups';
-import { getNow, formatTime, formatMinutes, formatDuration, hhmmToMinutes, dayLabel } from '@/domain/time';
+import { useDayScheduleStatus } from '@/hooks/useScheduleStatus';
+import { formatTime, formatMinutes, formatDuration, hhmmToMinutes, dayLabel } from '@/domain/time';
 import { withEffectiveEnds } from '@/domain/endTimes';
 import { travelMinutes, overrideMap } from '@/domain/travel';
-import { plannedPosition } from '@/domain/positions';
+import { positionWithCheckin, positionBadge, positionA11yLabel } from '@/domain/positions';
+import { attendWindow } from '@/domain/splitSet';
 import { ART } from '@/config/event';
 import type { TabId } from '@/store/appStore';
 import type { MenuRoute } from '@/components/MenuDrawer';
-import type { DayId, Performance } from '@/domain/types';
+import type { Performance } from '@/domain/types';
 
 export function NowDashboard({
   onOpenMenu,
@@ -25,30 +33,32 @@ export function NowDashboard({
   onOpenMenu: (r: MenuRoute) => void;
   onGoTab: (t: TabId) => void;
 }) {
-  const now = useClock(15000);
-  const nowInfo = getNow(now);
+  const { now, day, atMinute: nowMinute, live } = useFestivalClock(15000);
   const activeUserId = useApp((s) => s.settings.activeUserId);
   const selections = useApp((s) => s.selections);
   const performanceById = useApp((s) => s.performanceById);
   const performances = useApp((s) => s.performances);
   const artistById = useApp((s) => s.artistById);
   const locationById = useApp((s) => s.locationById);
-  const users = useApp((s) => s.users);
+  const checkins = useApp((s) => s.checkins);
+  const staleMinutes = useApp((s) => s.settings.staleMinutes);
+  const updateSettings = useApp((s) => s.updateSettings);
   const crowd = useApp((s) => s.settings.crowdDelay);
   const turnoverBuffer = useApp((s) => s.settings.turnoverBuffer);
   const overridesArr = useApp((s) => s.travelOverrides);
   const ctx = useGroupCtx();
-
-  // If not currently a festival day, use Saturday as the reference for planning.
-  const day: DayId = nowInfo.day ?? 'saturday';
-  const nowMinute = nowInfo.day ? nowInfo.minutes : 12 * 60;
+  const plans = usePlanStatuses();
+  const dayInfo = useDayScheduleStatus(day);
+  const [crewOpen, setCrewOpen] = useState(false);
 
   const ends = useMemo(() => withEffectiveEnds(performances, turnoverBuffer), [performances, turnoverBuffer]);
   const omap = useMemo(() => overrideMap(overridesArr), [overridesArr]);
   const conflicts = useConflicts(activeUserId);
   const meetups = useMeetups(day, 3);
+  const leaveBy = useLeaveBy(activeUserId, day, nowMinute, 1);
 
-  // Current or next selected performance for the active user.
+  // Current or next selected performance for the active user. Split-set trims
+  // are honored so "on now" matches the plan the user actually made.
   const myStops = useMemo(() => {
     return selections
       .filter((s) => {
@@ -56,23 +66,24 @@ export function NowDashboard({
         const p = performanceById.get(s.performanceId);
         return p?.day === day && p.type === 'main' && p.startTime && p.stageId;
       })
-      .map((s) => performanceById.get(s.performanceId)!)
-      .sort((a, b) => (a.startTime! < b.startTime! ? -1 : 1));
-  }, [selections, activeUserId, performanceById, day]);
+      .map((s) => {
+        const p = performanceById.get(s.performanceId)!;
+        return { perf: p, window: attendWindow(p, s, ends.get(p.id)!)! };
+      })
+      .sort((a, b) => a.window.start - b.window.start);
+  }, [selections, activeUserId, performanceById, day, ends]);
 
   const { current, next, previous } = useMemo(() => {
     let current: Performance | undefined;
     let next: Performance | undefined;
     let previous: Performance | undefined;
-    for (const p of myStops) {
-      const start = hhmmToMinutes(p.startTime!);
-      const end = ends.get(p.id)?.minutes ?? start + 30;
-      if (nowMinute >= start && nowMinute < end) current = p;
-      else if (start > nowMinute && !next) next = p;
-      else if (end <= nowMinute) previous = p;
+    for (const { perf, window } of myStops) {
+      if (nowMinute >= window.start && nowMinute < window.end) current = perf;
+      else if (window.start > nowMinute && !next) next = perf;
+      else if (window.end <= nowMinute) previous = perf;
     }
     return { current, next, previous };
-  }, [myStops, ends, nowMinute]);
+  }, [myStops, nowMinute]);
 
   const focus = current ?? next;
   const upcomingConflicts = conflicts.filter((c) => c.severity !== 'info').slice(0, 3);
@@ -83,26 +94,55 @@ export function NowDashboard({
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h1 className="font-display text-[22px] text-primary">
-            {nowInfo.day ? dayLabel(nowInfo.day) : 'Festival plan'}
+            {live ? dayLabel(day) : 'Festival plan'}
           </h1>
           <p className="text-[13px] text-secondary">
-            {nowInfo.day ? `It's ${formatMinutes(nowInfo.minutes)}` : 'Planning view'}
+            {live ? `It's ${formatMinutes(nowMinute)}` : 'Planning view'}
           </p>
         </div>
-        {!nowInfo.day && (
-          <span className="min-h-9 inline-flex items-center rounded-full bg-warp-yellow px-3 text-[12px] font-bold text-warp-ink">
-            Previewing {dayLabel(day)}
-          </span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {!live && (
+            <span className="min-h-9 inline-flex items-center rounded-full bg-warp-yellow px-3 text-[12px] font-bold text-warp-ink">
+              Previewing {dayLabel(day)}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => void updateSettings({ festivalMode: true })}
+            aria-label="Festival mode"
+            title="Festival mode"
+            className="min-h-touch min-w-touch flex items-center justify-center rounded-xl bg-[var(--surface-sunken)] text-secondary"
+          >
+            <Maximize2 size={17} aria-hidden />
+          </button>
+        </div>
       </div>
 
       {/* Simulated-time banner — "in 3 hr 5 min" a day before the festival
           read as real and contradicted the countdown. Same idiom as the
           Demo Mode banner. */}
-      {!nowInfo.day && (
+      {!live && (
         <div className="mb-3 rounded-lg bg-warp-yellow/15 px-3 py-1.5 text-[12px] font-semibold text-warn">
           Times below simulate {dayLabel(day)} at {formatMinutes(nowMinute)} — the festival hasn&apos;t started.
         </div>
+      )}
+
+      {/* One line of context on how complete this day is — the full strip
+          (with Mark Day Complete) lives on Schedule, where you'd act on it.
+          Anything taller than this pushes the time-critical answer below the
+          fold, which is the opposite of what a festival screen is for. */}
+      <ScheduleStatusStrip day={day} compact />
+
+      {/* 1. Leave-by comes first: it's the only time-critical number. */}
+      {leaveBy[0] && (
+        <LeaveByCard
+          className="mb-3"
+          info={leaveBy[0]}
+          artistName={
+            artistById.get(performanceById.get(leaveBy[0].performanceId)?.artistId ?? '')?.name ??
+            'Next set'
+          }
+        />
       )}
 
       {/* NEXT UP / NOW */}
@@ -113,7 +153,7 @@ export function NowDashboard({
           artistName={artistById.get(focus.artistId)?.name ?? 'Artist'}
           stageName={focus.stageId ? locationById.get(focus.stageId)?.name : undefined}
           minutesUntil={hhmmToMinutes(focus.startTime!) - nowMinute}
-          preview={!nowInfo.day}
+          preview={!live}
           travel={
             previous?.stageId && focus.stageId && previous.stageId !== focus.stageId
               ? travelMinutes(locationById.get(previous.stageId), locationById.get(focus.stageId), crowd, omap).minutes
@@ -121,7 +161,7 @@ export function NowDashboard({
           }
           friends={selections
             .filter((s) => s.performanceId === focus.id && s.selected && s.userId !== activeUserId)
-            .map((s) => users.find((u) => u.id === s.userId))
+            .map((s) => plans.all.find((u) => u.id === s.userId))
             .filter((u): u is NonNullable<typeof u> => !!u)}
           onOpen={() => onGoTab('schedule')}
         />
@@ -137,7 +177,12 @@ export function NowDashboard({
         </Card>
       )}
 
-      {/* Where friends plan to be now */}
+      {/* Find My Crew — one tap to the whole coordination picture. */}
+      <Button variant="secondary" className="mb-4 w-full py-3" onClick={() => setCrewOpen(true)}>
+        <Users size={18} aria-hidden /> Find My Crew
+      </Button>
+
+      {/* Where the crew is now, with the SOURCE of each position stated. */}
       <Card className="mb-4 p-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="flex items-center gap-1.5 font-display text-[15px] uppercase tracking-wide text-secondary">
@@ -148,21 +193,28 @@ export function NowDashboard({
           </button>
         </div>
         {(() => {
-          const rows = users.map((u) => ({
-            user: u,
-            pos: plannedPosition(u.id, day, nowMinute, {
-              selections: ctx.selections,
-              performanceById: ctx.performanceById,
-              locationById: ctx.locationById,
-              allPerformances: ctx.allPerformances,
-              crowd: ctx.crowd,
-              turnoverBuffer: ctx.turnoverBuffer,
-              overrides: ctx.overrides,
-            }),
-          }));
-          // Three identical "not arrived" rows are noise — collapse them until
-          // statuses actually diverge (the only time this card matters).
-          if (rows.every((r) => r.pos.kind === 'not-arrived')) {
+          const rows = plans.all.map((u) => {
+            const info = plans.byUser.get(u.id)!;
+            return {
+              user: u,
+              info,
+              pos: info.eligible
+                ? positionWithCheckin(u.id, day, nowMinute, checkins, now.getTime(), staleMinutes, {
+                    selections: ctx.selections,
+                    performanceById: ctx.performanceById,
+                    locationById: ctx.locationById,
+                    allPerformances: ctx.allPerformances,
+                    crowd: ctx.crowd,
+                    turnoverBuffer: ctx.turnoverBuffer,
+                    overrides: ctx.overrides,
+                  })
+                : null,
+            };
+          });
+          // Identical "not arrived" rows are noise — collapse them until
+          // statuses actually diverge (the only time this card matters). Only
+          // safe when nobody is in the unknown state.
+          if (rows.length > 1 && rows.every((r) => r.pos?.kind === 'not-arrived')) {
             return (
               <div className="flex items-center gap-2.5">
                 <span className="flex -space-x-2">
@@ -178,16 +230,33 @@ export function NowDashboard({
           }
           return (
             <div className="space-y-2">
-              {rows.map(({ user: u, pos }) => (
-                <div key={u.id} className="flex items-center gap-2.5">
-                  <FriendAvatar user={u} size={30} ring />
+              {rows.map(({ user: u, info, pos }) => (
+                <div
+                  key={u.id}
+                  className="flex items-center gap-2.5"
+                  aria-label={pos ? positionA11yLabel(pos, u.name) : `${u.name}, plan not imported`}
+                >
+                  <FriendAvatar user={u} size={30} ring dim={!info.eligible} />
                   <span className="text-[14px] font-semibold text-primary">
                     {u.id === activeUserId ? 'You' : u.name}
                   </span>
-                  <span className="flex-1 truncate text-[13px] text-secondary">{pos.label}</span>
-                  {pos.kind === 'open' && (
-                    <span className="rounded-full bg-warp-ok/15 px-2 py-0.5 text-[11px] font-semibold text-warp-ok">free</span>
-                  )}
+                  <span className="flex-1 truncate text-[13px] text-secondary">
+                    {pos ? pos.label : 'Plan not imported — unknown, not free'}
+                  </span>
+                  <span
+                    className={cx(
+                      'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold',
+                      !pos
+                        ? 'bg-[var(--surface-sunken)] text-muted'
+                        : pos.source === 'manual'
+                          ? 'bg-warp-ok/15 text-ok'
+                          : pos.kind === 'open'
+                            ? 'bg-warp-ok/15 text-ok'
+                            : 'bg-accent-soft text-accent',
+                    )}
+                  >
+                    {pos ? (pos.kind === 'open' && pos.source === 'planned' ? 'Free' : positionBadge(pos)) : 'Unknown'}
+                  </span>
                 </div>
               ))}
             </div>
@@ -203,6 +272,11 @@ export function NowDashboard({
             <Handshake size={15} aria-hidden /> Next meetup
           </h2>
           <MeetupCard meetup={meetups[0]} highlight />
+          {dayInfo.status !== 'complete' && (
+            <p className="mt-1 text-[11px] font-semibold text-warn">
+              Provisional — {dayLabel(day)} is only {dayInfo.entered} of {dayInfo.expected} sets entered.
+            </p>
+          )}
         </div>
       )}
 
@@ -225,14 +299,34 @@ export function NowDashboard({
         </Card>
       )}
 
+      {/* Food / water / sit-down windows. */}
+      <BreakPlannerCard day={day} className="mb-4" />
+
+      {/* Setup lives below the day's answers: once times exist, "what's next"
+          matters more than "finish setting up". It stays visible, and Settings
+          keeps a copy. */}
+      <SetupCard onGoTab={onGoTab} onOpenMenu={onOpenMenu} />
+
       <div className="grid grid-cols-2 gap-2">
         <Button variant="secondary" onClick={() => onOpenMenu('emergency')}>
           Emergency plan
         </Button>
         <Button variant="secondary" onClick={() => onGoTab('group')}>
-          Group day
+          <Coffee size={16} aria-hidden /> Group day
         </Button>
       </div>
+
+      {crewOpen && (
+        <FindMyCrew
+          day={day}
+          atMinute={nowMinute}
+          onClose={() => setCrewOpen(false)}
+          onGoMap={() => {
+            setCrewOpen(false);
+            onGoTab('map');
+          }}
+        />
+      )}
     </Screen>
   );
 }

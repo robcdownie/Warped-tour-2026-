@@ -1,14 +1,14 @@
 import { Calendar, Clock, Star, Users, Flag, ChevronRight, Plus } from 'lucide-react';
 import { useApp } from '@/store/appStore';
 import { useClock } from '@/hooks/useClock';
-import { Screen, Card, Button, cx } from '@/components/ui';
-import { FriendAvatar } from '@/components/FriendAvatar';
+import { Screen, Card, Button } from '@/components/ui';
+import { SetupCard } from '@/components/SetupCard';
+import { PlanStatusRow } from '@/components/PlanStatusRow';
+import { useScheduleStatus } from '@/hooks/useScheduleStatus';
+import { usePlanStatuses } from '@/hooks/usePlanStatus';
 import { EVENT, ART } from '@/config/event';
 import { timeUntilFestival } from '@/domain/time';
-import {
-  isScheduleLoaded,
-  selectedMainByDay,
-} from '@/store/selectors';
+import { selectedMainByDay } from '@/store/selectors';
 import type { TabId } from '@/store/appStore';
 import type { MenuRoute } from '@/components/MenuDrawer';
 import { NowDashboard } from './now/NowDashboard';
@@ -20,10 +20,11 @@ export function NowScreen({
   onOpenMenu: (r: MenuRoute) => void;
   onGoTab: (t: TabId) => void;
 }) {
-  const performances = useApp((s) => s.performances);
-  const scheduleLoaded = isScheduleLoaded(performances);
+  // "Any set times at all" is the right gate for showing the day view; the
+  // dashboard itself is responsible for saying how complete that day is.
+  const { any } = useScheduleStatus();
 
-  if (scheduleLoaded) {
+  if (any) {
     return <NowDashboard onOpenMenu={onOpenMenu} onGoTab={onGoTab} />;
   }
   return <PreSchedule onOpenMenu={onOpenMenu} onGoTab={onGoTab} />;
@@ -38,14 +39,15 @@ function PreSchedule({
 }) {
   useClock(1000);
   const activeUserId = useApp((s) => s.settings.activeUserId);
-  const users = useApp((s) => s.users);
   const selections = useApp((s) => s.selections);
   const performanceById = useApp((s) => s.performanceById);
-  const friendImports = useApp((s) => s.settings.friendImports);
+  const plans = usePlanStatuses();
 
   const satCount = selectedMainByDay(selections, performanceById, activeUserId, 'saturday').length;
   const sunCount = selectedMainByDay(selections, performanceById, activeUserId, 'sunday').length;
-  const friendsImported = Object.keys(friendImports).length;
+  // Only plans actually on this phone count — a seeded profile is not a friend
+  // who has shared anything (plan §P0-2).
+  const friendsImported = plans.eligible.filter((u) => u.id !== activeUserId).length;
 
   const cd = timeUntilFestival();
 
@@ -113,6 +115,9 @@ function PreSchedule({
         </div>
       </Card>
 
+      {/* Setup progress stays visible until the essentials are done. */}
+      <SetupCard onGoTab={onGoTab} onOpenMenu={onOpenMenu} />
+
       {/* Plan overview */}
       <Card className="mb-4 p-4">
         <h2 className="mb-3 font-display text-[15px] uppercase tracking-wide text-secondary">
@@ -178,30 +183,23 @@ function PreSchedule({
             Manage
           </button>
         </div>
-        <div className="flex items-start justify-around">
-          {users.map((u) => {
-            const imported = !!friendImports[u.id];
-            return (
-              <div key={u.id} className="flex flex-col items-center gap-1">
-                <FriendAvatar user={u} size={56} dim={!imported} ring />
-                <span className="text-[13px] font-semibold text-primary">{u.name}</span>
-                <span className={cx('text-[11px]', imported ? 'text-warp-ok' : 'text-muted')}>
-                  {imported ? 'Imported' : 'Not imported'}
-                </span>
-              </div>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => onOpenMenu('friends')}
-            className="flex flex-col items-center gap-1"
-          >
-            <span className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed border-[var(--accent-text)] text-accent">
-              <Plus size={24} aria-hidden />
-            </span>
-            <span className="text-[13px] font-semibold text-accent">Import</span>
-          </button>
+        <div className="space-y-1">
+          {plans.all.map((u) => (
+            <PlanStatusRow
+              key={u.id}
+              user={u}
+              info={plans.byUser.get(u.id)!}
+              onClick={() => onOpenMenu('friends')}
+            />
+          ))}
         </div>
+        <button
+          type="button"
+          onClick={() => onOpenMenu('friends')}
+          className="mt-2 flex min-h-touch w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--accent-text)] text-[13px] font-semibold text-accent"
+        >
+          <Plus size={17} aria-hidden /> Import a plan
+        </button>
       </Card>
 
       {/* Schedule status */}
