@@ -84,7 +84,7 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
   }
 
   // Missing-data conflicts.
-  for (const { perf, sel } of active) {
+  for (const { perf } of active) {
     if (!perf.stageId) {
       conflicts.push({
         id: `missing-stage-${perf.id}`,
@@ -121,7 +121,6 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
         actions: [],
       });
     }
-    void sel;
   }
 
   // Fully-scheduled sets (start + stage) for overlap/travel analysis.
@@ -143,7 +142,9 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
       const b = scheduled[j];
       const aEnd = a.end.minutes ?? a.start + 30; // fallback window if unknown
       const bEnd = b.end.minutes ?? b.start + 30;
-      const usesEstimated = a.end.kind === 'estimated' || b.end.kind === 'estimated';
+      // Anything but an exact end (estimated, or the +30 unknown fallback)
+      // means the comparison is a guess — never label it "exact times".
+      const usesEstimated = a.end.kind !== 'exact' || b.end.kind !== 'exact';
 
       const overlaps = a.start < bEnd && b.start < aEnd;
       if (overlaps) {
@@ -168,8 +169,10 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
             actions: attendActions(a, b),
           });
         }
-      } else if (b.start >= aEnd && a.stage && b.stage && a.stage.id !== b.stage.id) {
-        // Consecutive on different stages — check walking time.
+      } else if (j === i + 1 && b.start >= aEnd && a.stage && b.stage && a.stage.id !== b.stage.id) {
+        // Consecutive on different stages — check walking time. Only the
+        // chronologically adjacent pair matters: the user walks A→B→C, so
+        // warning about the A→C "walk" would be noise.
         const gap = b.start - aEnd;
         const t = travelMinutes(a.stage, b.stage, ctx.crowd, omap);
         if (gap < t.minutes) {
@@ -183,7 +186,7 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
               `A set ends around ${formatMin(aEnd)} at ${a.stage.shortName ?? a.stage.name}, ` +
               `and the next starts ${formatMin(b.start)} at ${b.stage.shortName ?? b.stage.name}. ` +
               `Only ${formatDuration(gap)} between them but the walk is about ${formatDuration(t.minutes)} ` +
-              `(${a.end.kind === 'estimated' ? 'estimated end' : 'exact end'}, approximate walk). ` +
+              `(${a.end.kind !== 'exact' ? 'estimated end' : 'exact end'}, approximate walk). ` +
               `These may not be realistically compatible.`,
             usesEstimatedTime: usesEstimated,
             actions: attendActions(a, b),
@@ -203,7 +206,7 @@ export function detectConflicts(day: DayId, ctx: ConflictContext): Conflict[] {
       performanceIds: run.map((r) => r.perf.id),
       title: `${run.length} sets back-to-back`,
       message: `You have ${run.length} sets in a row with little downtime. Consider a break or a meetup in the middle.`,
-      usesEstimatedTime: run.some((r) => r.end.kind === 'estimated'),
+      usesEstimatedTime: run.some((r) => r.end.kind !== 'exact'),
       actions: [],
     });
   }
@@ -238,9 +241,10 @@ function buildOverlap(
 }
 
 function attendActions(a: Scheduled, b: Scheduled): ConflictAction[] {
+  const aFirst = a.start <= b.start;
   return [
-    { kind: 'attend', label: `Attend the ${a.start <= b.start ? 'first' : 'second'} set`, attendId: a.perf.id, performanceIds: [a.perf.id, b.perf.id] },
-    { kind: 'attend', label: `Attend the ${b.start > a.start ? 'second' : 'first'} set`, attendId: b.perf.id, performanceIds: [a.perf.id, b.perf.id] },
+    { kind: 'attend', label: `Attend the ${aFirst ? 'first' : 'second'} set`, attendId: a.perf.id, performanceIds: [a.perf.id, b.perf.id] },
+    { kind: 'attend', label: `Attend the ${aFirst ? 'second' : 'first'} set`, attendId: b.perf.id, performanceIds: [a.perf.id, b.perf.id] },
     { kind: 'undecided', label: 'Keep both undecided', performanceIds: [a.perf.id, b.perf.id] },
     { kind: 'ignore', label: 'Ignore warning', performanceIds: [a.perf.id, b.perf.id] },
   ];

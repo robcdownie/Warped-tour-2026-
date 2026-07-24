@@ -13,6 +13,7 @@ import { getNow, formatTime, formatMinutes, formatDuration, hhmmToMinutes, dayLa
 import { withEffectiveEnds } from '@/domain/endTimes';
 import { travelMinutes, overrideMap } from '@/domain/travel';
 import { plannedPosition } from '@/domain/positions';
+import { ART } from '@/config/event';
 import type { TabId } from '@/store/appStore';
 import type { MenuRoute } from '@/components/MenuDrawer';
 import type { DayId, Performance } from '@/domain/types';
@@ -92,7 +93,7 @@ export function NowDashboard({
           <button
             type="button"
             onClick={() => onGoTab('schedule')}
-            className="rounded-full bg-warp-blue-500/10 px-3 py-1.5 text-[12px] font-semibold text-warp-blue-500"
+            className="min-h-9 rounded-full bg-accent-soft px-3 text-[12px] font-semibold text-accent"
           >
             Preview {dayLabel(day)}
           </button>
@@ -122,6 +123,7 @@ export function NowDashboard({
         <Card className="mb-4 p-4">
           <EmptyState
             Icon={CalendarClock}
+            image={ART.emptyBands}
             title={myStops.length ? 'All done for now' : 'No sets lined up'}
             message={myStops.length ? 'No more sets on your plan for this day.' : 'Pick bands and add set times to see your next set here.'}
             action={<Button variant="secondary" className="mt-1" onClick={() => onGoTab('bands')}>Pick bands</Button>}
@@ -135,7 +137,7 @@ export function NowDashboard({
           <h2 className="flex items-center gap-1.5 font-display text-[15px] uppercase tracking-wide text-secondary">
             <Users size={15} aria-hidden /> The crew right now
           </h2>
-          <button type="button" onClick={() => onGoTab('map')} className="text-[13px] font-semibold text-warp-blue-500">
+          <button type="button" onClick={() => onGoTab('map')} className="min-h-touch text-[13px] font-semibold text-accent">
             Map
           </button>
         </div>
@@ -188,7 +190,7 @@ export function NowDashboard({
               </li>
             ))}
           </ul>
-          <button type="button" onClick={() => onGoTab('schedule')} className="mt-2 text-[13px] font-semibold text-warp-blue-500">
+          <button type="button" onClick={() => onGoTab('schedule')} className="mt-2 min-h-touch text-[13px] font-semibold text-accent">
             Resolve in Schedule →
           </button>
         </Card>

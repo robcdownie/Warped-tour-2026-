@@ -2,13 +2,32 @@ import { Star, Heart, Circle } from 'lucide-react';
 import type { Priority } from '@/domain/types';
 import { cx } from './ui';
 
+// Theme-token colors so priority chips stay readable in light and dark mode.
 export const PRIORITY_META: Record<
   Priority,
   { label: string; short: string; Icon: typeof Star; color: string; bg: string }
 > = {
-  'must-see': { label: 'Must See', short: 'Must', Icon: Star, color: '#ff2d78', bg: 'rgba(255,45,120,0.14)' },
-  'want-to-see': { label: 'Want to See', short: 'Want', Icon: Heart, color: '#2f66c4', bg: 'rgba(47,102,196,0.14)' },
-  optional: { label: 'Optional', short: 'Maybe', Icon: Circle, color: '#6b7280', bg: 'rgba(107,114,128,0.14)' },
+  'must-see': {
+    label: 'Must See',
+    short: 'Must',
+    Icon: Star,
+    color: 'var(--color-warp-pink)',
+    bg: 'color-mix(in srgb, var(--color-warp-pink) 14%, transparent)',
+  },
+  'want-to-see': {
+    label: 'Want to See',
+    short: 'Want',
+    Icon: Heart,
+    color: 'var(--accent-text)',
+    bg: 'color-mix(in srgb, var(--accent-text) 14%, transparent)',
+  },
+  optional: {
+    label: 'Optional',
+    short: 'Maybe',
+    Icon: Circle,
+    color: 'var(--text-muted)',
+    bg: 'color-mix(in srgb, var(--text-muted) 14%, transparent)',
+  },
 };
 
 const ORDER: Priority[] = ['must-see', 'want-to-see', 'optional'];

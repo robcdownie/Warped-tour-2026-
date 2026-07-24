@@ -3,12 +3,27 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 
 // GitHub Pages project site is served from /Warped-tour-2026-/
 const BASE = '/Warped-tour-2026-/';
 
+// Build stamp shown in About + the update toast so "did the update land?" is
+// answerable on a phone over flaky festival Wi-Fi.
+function buildHash(): string {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim();
+  } catch {
+    return 'dev';
+  }
+}
+
 export default defineConfig({
   base: BASE,
+  define: {
+    __BUILD_HASH__: JSON.stringify(buildHash()),
+    __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -51,7 +66,7 @@ export default defineConfig({
       },
       workbox: {
         // Precache the entire built app shell + all static assets (js/css/html/img/fonts).
-        globPatterns: ['**/*.{js,css,html,webp,png,svg,woff,woff2,ico,json}'],
+        globPatterns: ['**/*.{js,css,html,webp,png,svg,woff,woff2,ico,json,webmanifest}'],
         // The festival map is large; make sure it is precached.
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         cleanupOutdatedCaches: true,

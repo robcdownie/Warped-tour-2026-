@@ -9,6 +9,7 @@ import { useApp } from '@/store/appStore';
 import { useConflicts } from '@/hooks/useConflicts';
 import { isScheduleLoaded } from '@/store/selectors';
 import { conflictSummary } from '@/domain/conflicts';
+import { ART } from '@/config/event';
 import type { MenuRoute } from '@/components/MenuDrawer';
 import type { DayId } from '@/domain/types';
 
@@ -65,6 +66,7 @@ export function ScheduleScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => v
         ) : (
           <EmptyState
             Icon={CalendarDays}
+            image={ART.emptySchedule}
             title="No set times yet"
             message="Warped releases stage times close to the show. Enter them here fast, or import them, and your day builds itself."
             action={

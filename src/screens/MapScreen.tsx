@@ -147,8 +147,8 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
             type="button"
             onClick={() => setMatterNow((v) => !v)}
             className={cx(
-              'inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[13px] font-bold',
-              matterNow ? 'border-warp-yellow bg-warp-yellow text-warp-ink' : 'border-warp-yellow/60 bg-warp-yellow/10 text-warp-yellow-dark',
+              'inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border px-3 text-[13px] font-bold',
+              matterNow ? 'border-warp-yellow bg-warp-yellow text-warp-ink' : 'border-warp-yellow/60 bg-warp-yellow/10 text-warn',
             )}
           >
             <Sparkles size={14} aria-hidden /> Now
@@ -160,7 +160,7 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
               onClick={() => toggle(k)}
               aria-pressed={active.has(k)}
               className={cx(
-                'inline-flex shrink-0 items-center rounded-full border px-3 py-1.5 text-[13px] font-semibold',
+                'inline-flex min-h-9 shrink-0 items-center rounded-full border px-3 text-[13px] font-semibold',
                 active.has(k) && !matterNow ? 'border-warp-blue-500 bg-warp-blue-500 text-white' : 'border-subtle bg-[var(--surface-card)] text-secondary',
               )}
             >
@@ -201,7 +201,7 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
           type="button"
           onClick={() => onOpenMenu('calibration')}
           aria-label="Map calibration"
-          className="absolute left-5 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-warp-ink shadow-md active:bg-white"
+          className="absolute left-5 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-warp-ink shadow-md active:bg-white"
         >
           <SlidersHorizontal size={17} aria-hidden />
         </button>
@@ -256,7 +256,7 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
           <div className="flex items-center gap-1 text-[13px] font-bold text-primary">
             <Clock size={14} aria-hidden />
             {formatMinutes(atMinute)}
-            <span className="ml-1 rounded-full bg-warp-blue-500/10 px-1.5 text-[10px] font-semibold text-warp-blue-500">
+            <span className="ml-1 rounded-full bg-accent-soft px-1.5 text-[10px] font-semibold text-accent">
               Planned from schedule
             </span>
           </div>

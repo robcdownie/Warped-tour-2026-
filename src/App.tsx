@@ -43,7 +43,7 @@ export function App() {
     return (
       <div className="surface-app flex h-full flex-col items-center justify-center gap-6">
         <WarpedWordmark className="h-14 scale-150" />
-        <div className="h-1.5 w-40 overflow-hidden rounded-full bg-black/10">
+        <div className="h-1.5 w-40 overflow-hidden rounded-full bg-[var(--surface-sunken)]">
           <div className="h-full w-1/2 animate-pulse rounded-full bg-warp-pink" />
         </div>
         <p className="text-sm text-secondary">Loading your festival plan…</p>
@@ -74,7 +74,7 @@ export function App() {
         )}
       </main>
 
-      <BottomNav active={menuRoute ? ('' as TabId) : activeTab} onChange={goTab} />
+      <BottomNav active={menuRoute ? null : activeTab} onChange={goTab} />
 
       <MenuDrawer
         open={menuOpen}

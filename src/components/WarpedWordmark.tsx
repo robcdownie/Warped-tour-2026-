@@ -11,13 +11,17 @@ export function WarpedWordmark({ className }: { className?: string }) {
       aria-label="Warped Long Beach Companion"
       role="img"
     >
-      <div className="flex flex-col items-center leading-none">
+      <div
+        className="flex flex-col items-center leading-none"
+        style={{ transform: 'rotate(-2deg)' }}
+      >
         <span
           className="font-display text-white"
           style={{
-            fontSize: '18px',
-            letterSpacing: '0.02em',
-            textShadow: '2px 2px 0 #0a0f1c',
+            fontSize: '19px',
+            letterSpacing: '0.01em',
+            // Layered punk offset: pink pass under an ink pass.
+            textShadow: '1.5px 1.5px 0 #ff2d78, 3px 3px 0 #0a0f1c',
           }}
         >
           WARPED
@@ -25,10 +29,14 @@ export function WarpedWordmark({ className }: { className?: string }) {
         <span
           className="font-display"
           style={{
-            fontSize: '10px',
-            letterSpacing: '0.14em',
-            color: '#ffd21e',
-            marginTop: '1px',
+            fontSize: '9px',
+            letterSpacing: '0.16em',
+            background: '#ffd21e',
+            color: '#0a0f1c',
+            padding: '1.5px 5px 1px',
+            marginTop: '2px',
+            transform: 'rotate(-1deg)',
+            boxShadow: '1.5px 1.5px 0 #0a0f1c',
           }}
         >
           LONG BEACH
@@ -36,13 +44,14 @@ export function WarpedWordmark({ className }: { className?: string }) {
       </div>
       <span
         aria-hidden
-        className="ml-1.5 inline-block"
+        className="ml-2 inline-block"
         style={{
           width: 0,
           height: 0,
-          borderTop: '7px solid transparent',
-          borderBottom: '7px solid transparent',
-          borderLeft: '11px solid #ff2d78',
+          borderTop: '8px solid transparent',
+          borderBottom: '8px solid transparent',
+          borderLeft: '12px solid #ff2d78',
+          filter: 'drop-shadow(1.5px 1.5px 0 #0a0f1c)',
         }}
       />
     </div>

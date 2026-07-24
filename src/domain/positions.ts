@@ -11,6 +11,7 @@ import type {
 import { withEffectiveEnds } from './endTimes';
 import { travelMinutes, overrideMap } from './travel';
 import { hhmmToMinutes } from './time';
+import { ENTRANCE_LOCATION_ID } from '@/config/event';
 
 // Planned friend positions (spec §24). Computed purely from selections,
 // attendance decisions, set times, and stage locations. NEVER a live location.
@@ -99,8 +100,11 @@ export function plannedPosition(
 
   // Before the first set.
   if (!prev && next) {
-    // traveling to the first set if within its travel window (from entrance).
-    const travel = travelMinutes(undefined, next.stage, ctx.crowd, omap);
+    // Traveling to the first set if within its travel window from the entrance.
+    // (An undefined origin would short-circuit travelMinutes to 0 and make the
+    // 'traveling' state unreachable — use the real entrance location.)
+    const entrance = ctx.locationById.get(ENTRANCE_LOCATION_ID);
+    const travel = travelMinutes(entrance, next.stage, ctx.crowd, omap);
     if (atMinute >= next.start - travel.minutes) {
       return {
         ...base,

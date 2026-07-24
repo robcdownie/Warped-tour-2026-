@@ -125,7 +125,7 @@ export function BandsScreen() {
               type="button"
               onClick={() => setQuery('')}
               aria-label="Clear search"
-              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted active:bg-black/5"
+              className="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-muted active:bg-[var(--press)]"
             >
               <X size={18} aria-hidden />
             </button>
@@ -185,10 +185,10 @@ export function BandsScreen() {
         <div ref={listRef} className="flex-1 space-y-4">
           {sections.length === 0 && (
             <div className="rounded-2xl border border-dashed border-subtle px-6 py-10 text-center">
-              <Filter size={30} className="mx-auto mb-2 text-warp-blue-400" aria-hidden />
+              <Filter size={30} className="mx-auto mb-2 text-accent" aria-hidden />
               <p className="text-[14px] text-secondary">No artists match these filters.</p>
               {anyFilter && (
-                <button type="button" onClick={clearAll} className="mt-2 text-[13px] font-semibold text-warp-blue-500">
+                <button type="button" onClick={clearAll} className="mt-2 min-h-touch text-[13px] font-semibold text-accent">
                   Clear filters
                 </button>
               )}
@@ -220,13 +220,13 @@ export function BandsScreen() {
         </div>
 
         {sections.length > 3 && (
-          <div className="sticky top-[136px] flex h-min flex-col items-center gap-0.5 py-1">
+          <div className="sticky top-[136px] flex h-min flex-col items-center py-1">
             {sections.map(([letter]) => (
               <button
                 key={letter}
                 type="button"
                 onClick={() => jumpTo(letter)}
-                className="px-1 text-[10px] font-bold text-warp-blue-500"
+                className="flex h-6 w-8 items-center justify-center text-[11px] font-bold text-accent"
                 aria-label={`Jump to ${letter}`}
               >
                 {letter}
@@ -260,7 +260,7 @@ function Chip({
       onClick={onClick}
       aria-pressed={active}
       className={cx(
-        'inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[13px] font-semibold transition',
+        'inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border px-3 text-[13px] font-semibold transition',
         active
           ? 'border-warp-blue-500 bg-warp-blue-500 text-white'
           : 'border-subtle bg-[var(--surface-card)] text-secondary',
@@ -323,7 +323,7 @@ function BandCard({
           <span
             className={cx(
               'inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold',
-              isUnplugged ? 'bg-warp-orange/15 text-warp-orange' : 'bg-warp-blue-500/10 text-warp-blue-500',
+              isUnplugged ? 'bg-warp-orange/15 text-warp-orange' : 'bg-accent-soft text-accent',
             )}
           >
             {isUnplugged ? 'Unplugged' : dayLabel(perf.day)}

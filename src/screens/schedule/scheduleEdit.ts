@@ -52,20 +52,6 @@ export function applyScheduleEdit(
   return { performance: next, warnings };
 }
 
-/** Suggest the next unscheduled main performance (for the "jump to next blank"). */
-export function nextUnscheduled(
-  performances: Performance[],
-  day: 'saturday' | 'sunday',
-  afterId?: string,
-): Performance | undefined {
-  const pool = performances
-    .filter((p) => p.type === 'main' && p.day === day && (!p.startTime || !p.stageId))
-    .sort((a, b) => a.id.localeCompare(b.id));
-  if (!afterId) return pool[0];
-  const idx = pool.findIndex((p) => p.id === afterId);
-  return pool[(idx + 1) % Math.max(1, pool.length)] ?? pool[0];
-}
-
 /** Parse loose time input ("3:05 pm", "1505", "15:05") into "HH:mm" or null. */
 export function parseTimeInput(raw: string): string | null {
   const s = raw.trim().toLowerCase();

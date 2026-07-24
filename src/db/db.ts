@@ -13,7 +13,7 @@ let prodDb: Promise<IDBPDatabase<WarpedDB>> | null = null;
 let demoDb: Promise<IDBPDatabase<WarpedDB>> | null = null;
 
 function open(name: string): Promise<IDBPDatabase<WarpedDB>> {
-  return openDB<WarpedDB>(name, DB_VERSION, {
+  const dbPromise: Promise<IDBPDatabase<WarpedDB>> = openDB<WarpedDB>(name, DB_VERSION, {
     upgrade(db, oldVersion) {
       runMigrations(db, oldVersion);
     },
@@ -21,10 +21,15 @@ function open(name: string): Promise<IDBPDatabase<WarpedDB>> {
       console.warn(`[db] ${name} open blocked by another tab`);
     },
     blocking() {
-      // Another tab wants to upgrade; close so it can proceed.
+      // Another tab wants to upgrade; actually close so it can proceed, and
+      // drop the cached connection so the next call reopens at the new version.
       console.warn(`[db] ${name} is blocking an upgrade; closing`);
+      void dbPromise.then((db) => db.close());
+      if (name === DEMO_DB_NAME) demoDb = null;
+      else prodDb = null;
     },
   });
+  return dbPromise;
 }
 
 export function getDb(mode: AppMode): Promise<IDBPDatabase<WarpedDB>> {

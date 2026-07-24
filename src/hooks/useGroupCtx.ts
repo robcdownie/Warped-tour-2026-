@@ -1,7 +1,12 @@
+import { useMemo } from 'react';
 import { useApp } from '@/store/appStore';
 import type { GroupCtx } from '@/domain/group';
 
-/** Assembles the GroupCtx from the store for the Group screen + map. */
+/**
+ * Assembles the GroupCtx from the store for the Group screen + map.
+ * Memoized on the underlying slices — a fresh object every render would defeat
+ * every downstream useMemo (and re-run the meetup engine constantly).
+ */
 export function useGroupCtx(): GroupCtx {
   const users = useApp((s) => s.users);
   const selections = useApp((s) => s.selections);
@@ -11,14 +16,17 @@ export function useGroupCtx(): GroupCtx {
   const crowd = useApp((s) => s.settings.crowdDelay);
   const turnoverBuffer = useApp((s) => s.settings.turnoverBuffer);
   const overrides = useApp((s) => s.travelOverrides);
-  return {
-    users,
-    selections,
-    performanceById,
-    locationById,
-    allPerformances,
-    crowd,
-    turnoverBuffer,
-    overrides,
-  };
+  return useMemo(
+    () => ({
+      users,
+      selections,
+      performanceById,
+      locationById,
+      allPerformances,
+      crowd,
+      turnoverBuffer,
+      overrides,
+    }),
+    [users, selections, performanceById, locationById, allPerformances, crowd, turnoverBuffer, overrides],
+  );
 }

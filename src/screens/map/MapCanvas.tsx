@@ -118,7 +118,7 @@ function MapBtn({ label, onClick, children }: { label: string; onClick: () => vo
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-warp-ink shadow-md active:bg-white"
+      className="flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-warp-ink shadow-md active:bg-white"
     >
       {children}
     </button>
@@ -149,7 +149,7 @@ export function MapMarker({
       style={{ left: `${xPercent}%`, top: `${yPercent}%`, zIndex: z }}
     >
       <div
-        className="pointer-events-auto"
+        className="pointer-events-auto rounded outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warp-yellow"
         role={onClick ? 'button' : undefined}
         tabIndex={onClick ? 0 : undefined}
         aria-label={ariaLabel}
@@ -160,10 +160,21 @@ export function MapMarker({
               : 'translate(-50%, -50%) scale(var(--inv, 1))',
           transformOrigin: anchor === 'bottom' ? 'bottom center' : 'center',
         }}
-        onClick={onClick}
+        onClick={
+          onClick
+            ? (e) => {
+                // Don't let a pin tap bubble to the map's background-tap handler
+                // (it would check the user in at raw coordinates / move a
+                // calibration pin instead of selecting this one).
+                e.stopPropagation();
+                onClick();
+              }
+            : undefined
+        }
         onKeyDown={(e) => {
           if (onClick && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
+            e.stopPropagation();
             onClick();
           }
         }}

@@ -24,7 +24,7 @@ export const UNPLUGGED_APPEARANCES: string[] = [
   'Micky Bang',
   'Monique Powell - Save Ferris',
   'MyVerse',
-  'Partical Kid',
+  'Particle Kid',
   'Ruby Leigh',
   'SULLVN featuring DICKY BARRETT',
   'Shaney Jo (Keep A Breast)',

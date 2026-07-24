@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useRef } from 'react';
 import {
   Settings,
   Users,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { cx } from './ui';
 import { useApp } from '@/store/appStore';
+import { useModalA11y } from '@/hooks/useModalA11y';
 
 export type MenuRoute =
   | 'settings'
@@ -51,13 +52,8 @@ export function MenuDrawer({
   onNavigate: (r: MenuRoute) => void;
 }) {
   const activeUser = useApp((s) => s.userById.get(s.settings.activeUserId));
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalA11y(open, panelRef, onClose);
 
   if (!open) return null;
 
@@ -70,7 +66,9 @@ export function MenuDrawer({
         onClick={onClose}
       />
       <div
-        className="absolute left-0 top-0 h-full w-[86%] max-w-[360px] overflow-y-auto shadow-2xl"
+        ref={panelRef}
+        tabIndex={-1}
+        className="absolute left-0 top-0 h-full w-[86%] max-w-[360px] overflow-y-auto shadow-2xl outline-none"
         style={{ background: 'var(--surface-card)' }}
       >
         <div
@@ -100,10 +98,10 @@ export function MenuDrawer({
                 onClick={() => onNavigate(route)}
                 className={cx(
                   'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left',
-                  'active:bg-black/5',
+                  'active:bg-[var(--press)]',
                 )}
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-warp-blue-500/10 text-warp-blue-500">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent">
                   <Icon size={20} aria-hidden />
                 </span>
                 <span className="flex-1">

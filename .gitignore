@@ -7,3 +7,8 @@ dist-ssr
 coverage
 shots
 *.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+scripts/.art-raw

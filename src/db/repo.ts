@@ -76,6 +76,12 @@ export class Repo {
   async getPerformance(id: string): Promise<Performance | undefined> {
     return (await this.db()).get('performances', id);
   }
+  async deletePerformance(id: string): Promise<void> {
+    await (await this.db()).delete('performances', id);
+  }
+  async deleteArtist(id: string): Promise<void> {
+    await (await this.db()).delete('artists', id);
+  }
 
   // ---- users ------------------------------------------------------------
   async putUser(u: User): Promise<void> {
@@ -100,6 +106,10 @@ export class Repo {
       ),
     );
     await tx.done;
+  }
+  async getSelection(userId: string, performanceId: string): Promise<Selection | undefined> {
+    const row = await (await this.db()).get('selections', selectionKey(userId, performanceId));
+    return row ? stripKey(row) : undefined;
   }
   async deleteSelection(userId: string, performanceId: string): Promise<void> {
     await (await this.db()).delete('selections', selectionKey(userId, performanceId));
@@ -176,14 +186,18 @@ export class Repo {
       await tx.done;
     }
   }
-  async popHistory(): Promise<HistoryEntry | undefined> {
+  /** Newest history entry that can be undone, without deleting anything. */
+  async peekUndoableHistory(): Promise<{ key: number; entry: HistoryEntry } | undefined> {
     const db = await this.db();
     const keys = await db.getAllKeys('history');
-    if (!keys.length) return undefined;
-    const lastKey = keys[keys.length - 1];
-    const entry = await db.get('history', lastKey);
-    await db.delete('history', lastKey);
-    return entry;
+    for (let i = keys.length - 1; i >= 0; i--) {
+      const entry = await db.get('history', keys[i]);
+      if (entry?.undo) return { key: keys[i] as number, entry };
+    }
+    return undefined;
+  }
+  async deleteHistory(key: number): Promise<void> {
+    await (await this.db()).delete('history', key);
   }
   async addBackup(snapshot: BackupSnapshot): Promise<number> {
     const db = await this.db();

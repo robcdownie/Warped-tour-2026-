@@ -10,7 +10,26 @@ import { SEED_USERS } from './users';
 
 // Bump when the seed data shape changes. Seeding is idempotent: it adds/updates
 // seed records by id but NEVER overwrites user-entered schedule fields.
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 4;
+
+/**
+ * One-off corrections to earlier seed data. When a name fix changes a seed id,
+ * anything referencing the old id is migrated and the stale records removed.
+ * (v4: "Partical Kid" → "Particle Kid".)
+ */
+const SEED_RENAMES: Array<{
+  oldArtist: string;
+  newArtist: string;
+  oldPerf: string;
+  newPerf: string;
+}> = [
+  {
+    oldArtist: artistId('Partical Kid'),
+    newArtist: artistId('Particle Kid'),
+    oldPerf: unpluggedPerformanceId('Partical Kid'),
+    newPerf: unpluggedPerformanceId('Particle Kid'),
+  },
+];
 
 export interface SeedBundle {
   artists: Artist[];
@@ -124,6 +143,33 @@ export async function seedDatabase(repo: Repo): Promise<void> {
   const existingUsers = new Map((await repo.allUsers()).map((u) => [u.id, u]));
   for (const u of SEED_USERS) {
     if (!existingUsers.has(u.id)) await repo.putUser(u);
+  }
+
+  // Migrate renamed seed records on devices seeded before the correction.
+  for (const r of SEED_RENAMES) {
+    const oldPerf = await repo.getPerformance(r.oldPerf);
+    if (oldPerf) {
+      const newPerf = await repo.getPerformance(r.newPerf);
+      if (newPerf) {
+        // Carry user-entered schedule fields over to the corrected record.
+        await repo.putPerformance({
+          ...newPerf,
+          stageId: oldPerf.stageId ?? newPerf.stageId,
+          startTime: oldPerf.startTime ?? newPerf.startTime,
+          endTime: oldPerf.endTime ?? newPerf.endTime,
+          estimatedEndTime: oldPerf.estimatedEndTime ?? newPerf.estimatedEndTime,
+          scheduleStatus: oldPerf.startTime ? oldPerf.scheduleStatus : newPerf.scheduleStatus,
+        });
+      }
+      await repo.deletePerformance(r.oldPerf);
+    }
+    // Point any saved selections at the corrected performance id.
+    const stale = (await repo.allSelections()).filter((s) => s.performanceId === r.oldPerf);
+    for (const s of stale) {
+      await repo.putSelection({ ...s, performanceId: r.newPerf });
+      await repo.deleteSelection(s.userId, r.oldPerf);
+    }
+    if (r.oldArtist !== r.newArtist) await repo.deleteArtist(r.oldArtist);
   }
 
   await repo.putMeta('seedVersion', SEED_VERSION);

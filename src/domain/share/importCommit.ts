@@ -64,13 +64,25 @@ export async function commitImport(repo: Repo, env: Envelope): Promise<CommitRes
     for (const [id, stageId, start, end] of d.p) {
       const p = perfs.get(id);
       if (!p) continue;
+      const nextStage = stageId ?? p.stageId;
+      const nextStart = start ?? p.startTime;
+      const nextEnd = end ?? p.endTime;
+      // A manually confirmed status survives an import that doesn't actually
+      // change anything; real changes recompute the status.
+      const unchanged =
+        nextStage === p.stageId && nextStart === p.startTime && nextEnd === p.endTime;
       updated.push({
         ...p,
-        stageId: stageId ?? p.stageId,
-        startTime: start ?? p.startTime,
-        endTime: end ?? p.endTime,
+        stageId: nextStage,
+        startTime: nextStart,
+        endTime: nextEnd,
         estimatedEndTime: end ? null : p.estimatedEndTime,
-        scheduleStatus: (start ?? p.startTime) && (stageId ?? p.stageId) ? 'scheduled' : 'time-pending',
+        scheduleStatus:
+          unchanged && p.scheduleStatus === 'confirmed'
+            ? 'confirmed'
+            : nextStart && nextStage
+              ? 'scheduled'
+              : 'time-pending',
       });
     }
     await repo.putPerformances(updated);
@@ -85,11 +97,23 @@ export async function commitImport(repo: Repo, env: Envelope): Promise<CommitRes
     summary = `Imported a check-in from ${c.userId}.`;
   } else if (env.type === 'backup') {
     const d = env.data as BackupData;
+    // Restore is a REPLACE (as the preview warns), not a merge: clear the
+    // user-data stores first so records absent from the backup don't linger.
+    // Performances/locations are keyed by stable seed ids and the backup holds
+    // the full set, so upserting them is already a replace.
+    await repo.clearStore('users');
+    await repo.clearStore('selections');
+    await repo.clearStore('checkins');
     for (const u of d.users) await repo.putUser(u);
     await repo.putSelections(d.selections);
     await repo.putPerformances(d.performances);
     await repo.putLocations(d.locations);
     for (const c of d.checkins) await repo.putCheckIn(c);
+    if (d.settings) {
+      // Keep this device's offlineReady flag — it reflects local SW state.
+      const cur = await repo.getSettings();
+      await repo.putSettings({ ...d.settings, offlineReady: cur.offlineReady });
+    }
     summary = `Restored backup: ${d.users.length} users, ${d.selections.length} selections.`;
   }
 

@@ -3,10 +3,12 @@ import type { Conflict, ConflictAction } from '@/domain/conflicts';
 import { useApp } from '@/store/appStore';
 import { Card, cx } from './ui';
 
+// Colors come from theme tokens so they stay readable in light AND dark;
+// bg/border washes are derived from the same color via color-mix.
 const SEVERITY_META = {
-  high: { Icon: AlertTriangle, color: '#ff2d78', bg: 'rgba(255,45,120,0.08)', border: 'rgba(255,45,120,0.4)', label: 'Conflict' },
-  warn: { Icon: AlertCircle, color: '#e8b800', bg: 'rgba(255,210,30,0.08)', border: 'rgba(232,184,0,0.4)', label: 'Warning' },
-  info: { Icon: Info, color: '#2f66c4', bg: 'rgba(47,102,196,0.06)', border: 'rgba(47,102,196,0.3)', label: 'Note' },
+  high: { Icon: AlertTriangle, color: 'var(--color-warp-pink)', label: 'Conflict' },
+  warn: { Icon: AlertCircle, color: 'var(--warn-text)', label: 'Warning' },
+  info: { Icon: Info, color: 'var(--accent-text)', label: 'Note' },
 } as const;
 
 export function ConflictCard({
@@ -41,7 +43,10 @@ export function ConflictCard({
     >
       <div
         className="rounded-lg border p-3"
-        style={{ background: m.bg, borderColor: m.border }}
+        style={{
+          background: `color-mix(in srgb, ${m.color} 9%, transparent)`,
+          borderColor: `color-mix(in srgb, ${m.color} 35%, transparent)`,
+        }}
       >
         <div className="mb-1 flex items-center gap-2">
           <m.Icon size={18} style={{ color: m.color }} aria-hidden />
@@ -52,7 +57,7 @@ export function ConflictCard({
         </div>
         <p className="text-[13px] leading-relaxed text-secondary">{conflict.message}</p>
         {conflict.usesEstimatedTime && (
-          <p className="mt-1 text-[11px] font-semibold text-warp-warn">
+          <p className="mt-1 text-[11px] font-semibold text-warn">
             Uses an estimated end time.
           </p>
         )}

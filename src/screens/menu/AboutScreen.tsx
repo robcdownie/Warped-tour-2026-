@@ -10,7 +10,9 @@ export function AboutScreen() {
           <WarpedWordmark className="h-12 scale-125" />
         </div>
         <h1 className="text-center font-display text-[18px] text-primary">{APP_NAME}</h1>
-        <p className="mt-1 text-center text-[13px] text-secondary">Version 1.0.0</p>
+        <p className="mt-1 text-center text-[13px] text-secondary">
+          Version 1.0.0 · build {__BUILD_HASH__} ({__BUILD_DATE__})
+        </p>
       </Card>
 
       <Card className="mb-4 p-4">

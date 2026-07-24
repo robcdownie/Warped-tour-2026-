@@ -26,6 +26,9 @@ export function FriendsScreen() {
     () => selections.filter((s) => s.userId === activeUserId && s.selected).length,
     [selections, activeUserId],
   );
+  // The people to send selections to — everyone except whoever this device is.
+  const otherNames = users.filter((u) => u.id !== activeUserId).map((u) => u.name);
+  const othersLabel = otherNames.length ? otherNames.join(' & ') : 'your friends';
 
   const exportCode = useMemo(
     () => (activeUser ? encodeSelections(activeUser, selections, new Date().toISOString()) : ''),
@@ -81,7 +84,7 @@ export function FriendsScreen() {
           Share my bands
         </h2>
         <p className="mb-3 text-[13px] text-secondary">
-          You have <b>{myCount}</b> bands selected. Send them to Ari &amp; Morgan by QR or code.
+          You have <b>{myCount}</b> bands selected. Send them to {othersLabel} by QR or code.
         </p>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="yellow" onClick={() => setExporting(true)} disabled={!myCount}>
@@ -111,6 +114,7 @@ export function FriendsScreen() {
                     type="file"
                     accept="image/*"
                     className="hidden"
+                    aria-label={`Set a photo for ${u.name}`}
                     onChange={(e) => e.target.files?.[0] && setAvatar(e.target.files[0], u.id)}
                   />
                   <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-warp-blue-500 text-white ring-2 ring-[var(--surface-card)]">

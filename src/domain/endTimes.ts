@@ -54,9 +54,31 @@ export function effectiveEnd(
   return { minutes: null, hhmm: null, kind: 'unknown' };
 }
 
-/** Recompute + persist the estimatedEndTime field is done in the store; this is
- *  the pure calculation used by conflicts, schedule view, and meetups. */
+// withEffectiveEnds is called per user per render across conflicts, meetups,
+// positions and the map slider. The store replaces the performances array
+// identity on every data change, so a WeakMap keyed on the array (plus the
+// buffer value) makes repeat calls free without changing any call sites.
+// Callers only read the returned map — it must never be mutated.
+const endsCache = new WeakMap<Performance[], Map<number, Map<string, EffectiveEnd>>>();
+
+/** The pure end-time calculation used by conflicts, schedule view, and meetups. */
 export function withEffectiveEnds(
+  performances: Performance[],
+  turnoverBuffer: number,
+): Map<string, EffectiveEnd> {
+  let byBuffer = endsCache.get(performances);
+  if (!byBuffer) {
+    byBuffer = new Map();
+    endsCache.set(performances, byBuffer);
+  }
+  const cached = byBuffer.get(turnoverBuffer);
+  if (cached) return cached;
+  const result = computeEffectiveEnds(performances, turnoverBuffer);
+  byBuffer.set(turnoverBuffer, result);
+  return result;
+}
+
+function computeEffectiveEnds(
   performances: Performance[],
   turnoverBuffer: number,
 ): Map<string, EffectiveEnd> {

@@ -12,7 +12,7 @@ import { useMeetups } from '@/hooks/useMeetups';
 import { itinerary } from '@/store/selectors';
 import { isScheduleLoaded } from '@/store/selectors';
 import { formatMinutes, formatTime, formatDuration, hhmmToMinutes } from '@/domain/time';
-import { EVENT } from '@/config/event';
+import { EVENT, ART } from '@/config/event';
 import type { DayId, User } from '@/domain/types';
 import type { TabId } from '@/store/appStore';
 
@@ -63,7 +63,7 @@ export function GroupScreen({ onGoTab }: { onGoTab: (t: TabId) => void }) {
             onClick={() => setView(id)}
             aria-pressed={view === id}
             className={cx(
-              'inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[13px] font-semibold',
+              'inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border px-3 text-[13px] font-semibold',
               view === id ? 'border-warp-blue-500 bg-warp-blue-500 text-white' : 'border-subtle bg-[var(--surface-card)] text-secondary',
             )}
           >
@@ -75,6 +75,7 @@ export function GroupScreen({ onGoTab }: { onGoTab: (t: TabId) => void }) {
       {!scheduleLoaded && view !== 'person' ? (
         <EmptyState
           Icon={CalendarClock}
+          image={ART.emptyGroup}
           title="Set times needed"
           message="Once set times are entered, the group timeline, shared sets, and meetups fill in here."
           action={
@@ -227,6 +228,7 @@ function MeetupsView({ day }: { day: DayId }) {
     return (
       <EmptyState
         Icon={Handshake}
+        image={ART.emptyMap}
         title="No meetups found yet"
         message="Once a couple of you have set times entered, the app finds windows where you're all free and picks an easy spot."
       />

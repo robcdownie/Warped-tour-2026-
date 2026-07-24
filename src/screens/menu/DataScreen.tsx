@@ -26,19 +26,32 @@ export function DataScreen() {
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [confirm, setConfirm] = useState<ConfirmKind>(null);
 
-  const now = new Date().toISOString();
+  const settings = useApp((s) => s.settings);
+  // Timestamp computed inside each memo — a top-level `new Date()` would be a
+  // fresh dep every render and defeat the memoization entirely.
   const backupCode = useMemo(
-    () => encodeBackup({ users, selections, performances, locations, checkins }, activeUserId, now),
-    [users, selections, performances, locations, checkins, activeUserId, now],
+    () =>
+      encodeBackup(
+        { users, selections, performances, locations, checkins, settings },
+        activeUserId,
+        new Date().toISOString(),
+      ),
+    [users, selections, performances, locations, checkins, settings, activeUserId],
   );
-  const scheduleCode = useMemo(() => encodeSchedule(performances, activeUserId, now), [performances, activeUserId, now]);
-  const coordsCode = useMemo(() => encodeCoordinates(locations, activeUserId, now), [locations, activeUserId, now]);
+  const scheduleCode = useMemo(
+    () => encodeSchedule(performances, activeUserId, new Date().toISOString()),
+    [performances, activeUserId],
+  );
+  const coordsCode = useMemo(
+    () => encodeCoordinates(locations, activeUserId, new Date().toISOString()),
+    [locations, activeUserId],
+  );
 
   return (
     <Screen>
       <Card className="mb-4 p-4">
         <h2 className="mb-3 flex items-center gap-2 font-display text-[15px] text-primary">
-          <Database size={16} className="text-warp-blue-500" aria-hidden /> Backup &amp; restore
+          <Database size={16} className="text-accent" aria-hidden /> Backup &amp; restore
         </h2>
         <div className="space-y-2">
           <RowBtn Icon={Upload} label="Export complete backup" desc="Everything, as one code/file" onClick={() => setSheet('backup-export')} />
@@ -129,7 +142,7 @@ function RowBtn({
       onClick={onClick}
       className="flex w-full items-center gap-3 rounded-xl bg-[var(--surface-sunken)] p-3 text-left active:opacity-80"
     >
-      <Icon size={20} className={danger ? 'text-warp-danger' : 'text-warp-blue-500'} aria-hidden />
+      <Icon size={20} className={danger ? 'text-danger' : 'text-accent'} aria-hidden />
       <span className="flex-1">
         <span className={`block text-[14px] font-semibold ${danger ? 'text-warp-danger' : 'text-primary'}`}>{label}</span>
         <span className="block text-[12px] text-muted">{desc}</span>

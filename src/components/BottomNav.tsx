@@ -14,7 +14,8 @@ export function BottomNav({
   active,
   onChange,
 }: {
-  active: TabId;
+  /** null = no tab active (a menu screen is showing). */
+  active: TabId | null;
   onChange: (t: TabId) => void;
 }) {
   return (

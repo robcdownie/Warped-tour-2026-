@@ -54,6 +54,13 @@
   --border-subtle: #e2e8f0;
   --border-strong: #cbd5e1;
   --nav-bg: #0a0f1c;
+  /* Readable-on-surface accents (brand blue is too dark for dark surfaces). */
+  --accent-text: #1f5fa8;
+  --ok-text: #1e9e54;
+  --warn-text: #9a7a00;
+  --danger-text: #d43c3c;
+  /* Press/hover wash that is visible on both themes. */
+  --press: rgba(0, 0, 0, 0.06);
   color-scheme: light;
 }
 
@@ -68,6 +75,11 @@
   --border-subtle: #164a8c;
   --border-strong: #1f5fa8;
   --nav-bg: #05122b;
+  --accent-text: #93b4e6;
+  --ok-text: #3fd47f;
+  --warn-text: #ffd21e;
+  --danger-text: #ff6b6b;
+  --press: rgba(255, 255, 255, 0.08);
   color-scheme: dark;
 }
 
@@ -83,6 +95,11 @@
     --border-subtle: #164a8c;
     --border-strong: #1f5fa8;
     --nav-bg: #05122b;
+    --accent-text: #93b4e6;
+    --ok-text: #3fd47f;
+    --warn-text: #ffd21e;
+    --danger-text: #ff6b6b;
+    --press: rgba(255, 255, 255, 0.08);
     color-scheme: dark;
   }
 }
@@ -150,6 +167,22 @@ body {
 }
 .border-subtle {
   border-color: var(--border-subtle);
+}
+/* Theme-aware accent/status text (readable on both light and dark surfaces). */
+.text-accent {
+  color: var(--accent-text);
+}
+.bg-accent-soft {
+  background: color-mix(in srgb, var(--accent-text) 14%, transparent);
+}
+.text-ok {
+  color: var(--ok-text);
+}
+.text-warn {
+  color: var(--warn-text);
+}
+.text-danger {
+  color: var(--danger-text);
 }
 
 /* Hide scrollbars on horizontal chip rows but keep scrollability. */

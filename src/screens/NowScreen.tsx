@@ -1,14 +1,10 @@
-import { Calendar, Clock, Star, Users, Flag, ChevronRight, MapPin, Plus } from 'lucide-react';
+import { Calendar, Clock, Star, Users, Flag, ChevronRight, Plus } from 'lucide-react';
 import { useApp } from '@/store/appStore';
 import { useClock } from '@/hooks/useClock';
 import { Screen, Card, Button, cx } from '@/components/ui';
 import { FriendAvatar } from '@/components/FriendAvatar';
-import { EVENT } from '@/config/event';
-import {
-  timeUntilFestival,
-  formatTime,
-  dayLabel,
-} from '@/domain/time';
+import { EVENT, ART } from '@/config/event';
+import { timeUntilFestival } from '@/domain/time';
 import {
   isScheduleLoaded,
   selectedMainByDay,
@@ -55,19 +51,30 @@ function PreSchedule({
 
   return (
     <Screen>
-      {/* Hero banner */}
-      <div
-        className="relative -mx-4 mb-4 overflow-hidden px-5 pb-6 pt-4"
-        style={{ background: 'linear-gradient(135deg,#1f5fa8 0%,#0b2f6b 60%,#082450 100%)' }}
-      >
-        <div className="font-display text-[28px] leading-none text-white" style={{ textShadow: '2px 2px 0 #0a0f1c' }}>
-          WARPED TOUR
-        </div>
-        <div className="mt-1 flex items-center gap-2">
-          <span className="rounded bg-warp-yellow px-2 py-0.5 font-display text-[13px] text-warp-ink">
-            LONG BEACH
-          </span>
-          <span className="font-display text-[15px] text-warp-pink">2026</span>
+      {/* Hero banner — generated Long Beach artwork with a legibility scrim */}
+      <div className="relative -mx-4 mb-4 overflow-hidden">
+        <img
+          src={ART.hero}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 h-full w-full object-cover object-[center_35%]"
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(180deg, rgba(8,36,80,0.25) 0%, rgba(8,36,80,0.05) 45%, rgba(5,25,58,0.78) 100%)' }}
+        />
+        <div className="relative px-5 pb-5 pt-16">
+          <div className="font-display text-[30px] leading-none text-white" style={{ textShadow: '2px 2px 0 #0a0f1c' }}>
+            WARPED TOUR
+          </div>
+          <div className="mt-1.5 flex items-center gap-2">
+            <span className="rounded bg-warp-yellow px-2 py-0.5 font-display text-[13px] text-warp-ink shadow-[1.5px_1.5px_0_#0a0f1c]">
+              LONG BEACH
+            </span>
+            <span className="font-display text-[15px] text-warp-pink" style={{ textShadow: '1.5px 1.5px 0 #0a0f1c' }}>
+              2026
+            </span>
+          </div>
         </div>
       </div>
 
@@ -113,13 +120,13 @@ function PreSchedule({
         </h2>
         <div className="grid grid-cols-4 gap-1 text-center">
           <Stat Icon={Star} iconClass="text-warp-pink" value={satCount} label="Bands Sat" />
-          <Stat Icon={Star} iconClass="text-warp-blue-500" value={sunCount} label="Bands Sun" />
+          <Stat Icon={Star} iconClass="text-accent" value={sunCount} label="Bands Sun" />
           <Stat Icon={Users} iconClass="text-warp-orange" value={friendsImported} label="Friends" />
           <Stat Icon={Flag} iconClass="text-warp-ok" value={'--'} label="Meetups" />
         </div>
       </Card>
 
-      {/* Next up placeholder */}
+      {/* Next up — honest empty state until set times exist */}
       <Card className="mb-4 p-4">
         <h2 className="mb-3 font-display text-[15px] uppercase tracking-wide text-secondary">
           Next Up
@@ -129,21 +136,17 @@ function PreSchedule({
           onClick={() => onOpenMenu('schedule-io')}
           className="flex w-full items-center gap-3 text-left"
         >
-          <div className="h-20 w-20 shrink-0 rounded-xl bg-[var(--surface-sunken)]" aria-hidden />
-          <div className="flex-1">
-            <div className="mb-2 h-3 w-3/4 rounded bg-[var(--surface-sunken)]" aria-hidden />
-            <div className="flex items-center gap-1 text-muted">
-              <Clock size={14} aria-hidden />
-              <span className="font-mono text-[13px]">{formatTime(null)}</span>
-            </div>
-            <div className="mt-1 flex items-center gap-1 text-muted">
-              <MapPin size={14} aria-hidden />
-              <span className="text-[13px]">Stage TBA</span>
-            </div>
-          </div>
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--surface-sunken)] text-muted">
+            <Clock size={22} aria-hidden />
+          </span>
+          <span className="flex-1">
+            <span className="block text-[14px] font-semibold text-primary">Nothing scheduled yet</span>
+            <span className="block text-[13px] text-muted">
+              Your next set shows here once times are loaded.
+            </span>
+          </span>
           <ChevronRight className="text-muted" aria-hidden />
         </button>
-        <p className="mt-2 text-[13px] text-muted">No set times loaded yet.</p>
       </Card>
 
       {/* Friends */}
@@ -154,7 +157,7 @@ function PreSchedule({
           </h2>
           <button
             type="button"
-            className="text-[13px] font-semibold text-warp-blue-500"
+            className="min-h-touch text-[13px] font-semibold text-accent"
             onClick={() => onOpenMenu('friends')}
           >
             Manage
@@ -178,10 +181,10 @@ function PreSchedule({
             onClick={() => onOpenMenu('friends')}
             className="flex flex-col items-center gap-1"
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed border-warp-blue-400 text-warp-blue-500">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed border-[var(--accent-text)] text-accent">
               <Plus size={24} aria-hidden />
             </span>
-            <span className="text-[13px] font-semibold text-warp-blue-500">Import</span>
+            <span className="text-[13px] font-semibold text-accent">Import</span>
           </button>
         </div>
       </Card>
@@ -210,8 +213,8 @@ function PreSchedule({
       </Card>
 
       <p className="px-1 pt-3 text-center text-[11px] leading-relaxed text-muted">
-        Day is {dayLabel(null) === 'TBA' ? 'set' : ''} · Unofficial personal companion app. Not
-        affiliated with or endorsed by Vans or Vans Warped Tour.
+        Unofficial personal companion app. Not affiliated with or endorsed by Vans or Vans
+        Warped Tour.
       </p>
     </Screen>
   );

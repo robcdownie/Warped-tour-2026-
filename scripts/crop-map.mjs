@@ -8,7 +8,7 @@
 //
 // Usage: npm run assets:map
 import sharp from 'sharp';
-import { mkdirSync, existsSync, copyFileSync } from 'node:fs';
+import { mkdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -17,8 +17,6 @@ const root = resolve(__dirname, '..');
 
 // Source screenshot. Kept in docs/assets so the crop can always be re-derived.
 const ORIGINAL = resolve(root, 'docs/assets/original-map-screenshot.png');
-const UPLOAD_FALLBACK =
-  'C:/Users/sidzb/.claude/uploads/01bf87f4-ea39-4951-9447-2afb49cf5b43/7365fbef-IMG_2382.png';
 
 // Crop rectangle (measured from the 1320x2868 screenshot: blue artwork y=665..2453).
 const CROP = { left: 0, top: 660, width: 1320, height: 1798 };
@@ -27,15 +25,9 @@ const OUT_DIR = resolve(root, 'public/map');
 const OUT = resolve(OUT_DIR, 'festival-map.webp');
 
 async function main() {
-  let source = ORIGINAL;
+  const source = ORIGINAL;
   if (!existsSync(source)) {
-    if (existsSync(UPLOAD_FALLBACK)) {
-      mkdirSync(dirname(ORIGINAL), { recursive: true });
-      copyFileSync(UPLOAD_FALLBACK, ORIGINAL);
-      source = ORIGINAL;
-    } else {
-      throw new Error(`No source map found at ${ORIGINAL}`);
-    }
+    throw new Error(`No source map found at ${ORIGINAL}`);
   }
   mkdirSync(OUT_DIR, { recursive: true });
 

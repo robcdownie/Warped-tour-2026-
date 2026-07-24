@@ -4,14 +4,18 @@
 
 const CHUNK_PREFIX = 'WLBQ';
 
-/** Split a code into QR-sized chunks. Returns [code] unchanged if it fits. */
+/** Split a code into QR-sized chunks. Every emitted chunk (prefix included) fits maxChunkChars. */
 export function toChunks(code: string, maxChunkChars = 700): string[] {
-  if (code.length <= maxChunkChars) {
+  if (code.length + `${CHUNK_PREFIX}|1|1|`.length <= maxChunkChars) {
     return [`${CHUNK_PREFIX}|1|1|${code}`];
   }
+  // Budget the "WLBQ|index|total|" prefix into each piece so the final chunk
+  // strings stay within the scannable-QR limit (3-digit worst case).
+  const prefixBudget = CHUNK_PREFIX.length + 9;
+  const pieceSize = Math.max(1, maxChunkChars - prefixBudget);
   const pieces: string[] = [];
-  for (let i = 0; i < code.length; i += maxChunkChars) {
-    pieces.push(code.slice(i, i + maxChunkChars));
+  for (let i = 0; i < code.length; i += pieceSize) {
+    pieces.push(code.slice(i, i + pieceSize));
   }
   const total = pieces.length;
   return pieces.map((p, i) => `${CHUNK_PREFIX}|${i + 1}|${total}|${p}`);

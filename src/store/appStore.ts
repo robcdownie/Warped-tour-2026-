@@ -221,7 +221,9 @@ export const useApp = create<AppState>((set, get) => ({
 
   toggleSelection: async (userId, performanceId) => {
     const repo = repoFor(get().mode);
-    const existing = get().getSelection(userId, performanceId);
+    // Read fresh from IndexedDB (not the in-memory mirror) so two mutations
+    // fired before a reloadAll resolves can't clobber each other's fields.
+    const existing = await repo.getSelection(userId, performanceId);
     if (existing) {
       const next = { ...existing, selected: !existing.selected };
       await repo.putSelection(next);
@@ -241,7 +243,7 @@ export const useApp = create<AppState>((set, get) => ({
 
   setPriority: async (userId, performanceId, priority) => {
     const repo = repoFor(get().mode);
-    const existing = get().getSelection(userId, performanceId) ?? {
+    const existing = (await repo.getSelection(userId, performanceId)) ?? {
       userId,
       performanceId,
       selected: true,
@@ -255,7 +257,7 @@ export const useApp = create<AppState>((set, get) => ({
 
   setAttendance: async (userId, performanceId, decision, skippedForConflict) => {
     const repo = repoFor(get().mode);
-    const existing = get().getSelection(userId, performanceId);
+    const existing = await repo.getSelection(userId, performanceId);
     if (!existing) return;
     await repo.putSelection({
       ...existing,
@@ -267,7 +269,7 @@ export const useApp = create<AppState>((set, get) => ({
 
   setNotes: async (userId, performanceId, notes) => {
     const repo = repoFor(get().mode);
-    const existing = get().getSelection(userId, performanceId) ?? {
+    const existing = (await repo.getSelection(userId, performanceId)) ?? {
       userId,
       performanceId,
       selected: true,
@@ -312,11 +314,19 @@ export const useApp = create<AppState>((set, get) => ({
 
   undoLastScheduleEdit: async () => {
     const repo = repoFor(get().mode);
-    const entry = await repo.popHistory();
-    if (!entry?.undo) return false;
-    const cur = await repo.getPerformance(entry.undo.performanceId);
-    if (!cur) return false;
-    await repo.putPerformance({ ...cur, ...entry.undo.before });
+    // Peek first — only delete the entry once the undo actually applies, so a
+    // failed undo can't silently consume history.
+    const top = await repo.peekUndoableHistory();
+    if (!top) return false;
+    const cur = await repo.getPerformance(top.entry.undo!.performanceId);
+    if (!cur) {
+      // The performance no longer exists; the entry can never apply. Drop it
+      // so it doesn't wedge the undo stack.
+      await repo.deleteHistory(top.key);
+      return false;
+    }
+    await repo.putPerformance({ ...cur, ...top.entry.undo!.before });
+    await repo.deleteHistory(top.key);
     await get().reloadAll();
     return true;
   },

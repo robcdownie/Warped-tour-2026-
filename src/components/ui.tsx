@@ -26,7 +26,7 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   yellow: 'bg-warp-yellow text-warp-ink active:bg-warp-yellow-dark font-bold',
   secondary:
     'bg-[var(--surface-sunken)] text-primary border border-subtle active:opacity-80',
-  ghost: 'bg-transparent text-primary active:bg-black/5',
+  ghost: 'bg-transparent text-primary active:bg-[var(--press)]',
   danger: 'bg-warp-danger text-white active:opacity-90',
 };
 
@@ -103,11 +103,11 @@ export function Pill({
   const colors: Record<string, string> = {
     default: 'bg-[var(--surface-sunken)] text-secondary',
     pink: 'bg-warp-pink/15 text-warp-pink',
-    blue: 'bg-warp-blue-500/15 text-warp-blue-500',
-    yellow: 'bg-warp-yellow/20 text-warp-yellow-dark',
-    danger: 'bg-warp-danger/15 text-warp-danger',
-    ok: 'bg-warp-ok/15 text-warp-ok',
-    warn: 'bg-warp-warn/20 text-warp-warn',
+    blue: 'bg-accent-soft text-accent',
+    yellow: 'bg-warp-yellow/20 text-warn',
+    danger: 'bg-warp-danger/15 text-danger',
+    ok: 'bg-warp-ok/15 text-ok',
+    warn: 'bg-warp-warn/20 text-warn',
   };
   return (
     <span

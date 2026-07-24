@@ -29,7 +29,7 @@ export function TravelScreen() {
       {/* Crowd level */}
       <Card className="mb-4 p-4">
         <div className="mb-2 flex items-center gap-2">
-          <Users size={16} className="text-warp-blue-500" aria-hidden />
+          <Users size={16} className="text-accent" aria-hidden />
           <h2 className="font-display text-[15px] text-primary">Crowd level</h2>
         </div>
         <p className="mb-3 text-[13px] text-secondary">
@@ -73,7 +73,7 @@ export function TravelScreen() {
       <Card className="p-4">
         <div className="mb-1 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Footprints size={16} className="text-warp-blue-500" aria-hidden />
+            <Footprints size={16} className="text-accent" aria-hidden />
             <h2 className="font-display text-[15px] text-primary">Walking times</h2>
           </div>
           <Button
@@ -119,7 +119,7 @@ export function TravelScreen() {
                     onClick={() => setEditing(key)}
                     className={cx(
                       'rounded-lg px-2 py-1 text-[13px] font-semibold',
-                      row.source === 'override' ? 'bg-warp-blue-500/15 text-warp-blue-500' : 'bg-[var(--surface-sunken)] text-primary',
+                      row.source === 'override' ? 'bg-accent-soft text-accent' : 'bg-[var(--surface-sunken)] text-primary',
                     )}
                   >
                     ~{formatDuration(row.minutes)}
@@ -154,7 +154,7 @@ function Stepper({
         type="button"
         onClick={() => onChange(Math.max(min, value - 1))}
         aria-label="Decrease"
-        className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-sunken)] text-[20px] font-bold text-primary"
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--surface-sunken)] text-[20px] font-bold text-primary"
       >
         −
       </button>
@@ -165,7 +165,7 @@ function Stepper({
         type="button"
         onClick={() => onChange(Math.min(max, value + 1))}
         aria-label="Increase"
-        className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-sunken)] text-[20px] font-bold text-primary"
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--surface-sunken)] text-[20px] font-bold text-primary"
       >
         +
       </button>

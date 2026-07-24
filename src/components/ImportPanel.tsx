@@ -110,7 +110,7 @@ export function ImportPanel({
       <Card className="p-4 text-center">
         {rolledBack ? (
           <>
-            <Undo2 size={32} className="mx-auto mb-2 text-warp-blue-500" aria-hidden />
+            <Undo2 size={32} className="mx-auto mb-2 text-accent" aria-hidden />
             <p className="font-display text-[16px] text-primary">Import undone</p>
             <p className="mt-1 text-[13px] text-secondary">Your data was restored to before the import.</p>
           </>
@@ -143,10 +143,11 @@ export function ImportPanel({
         <p className="mb-3 text-[13px] text-secondary">
           From <b>{preview.source}</b> · exported {new Date(preview.exportedAt).toLocaleString()}
         </p>
-        <div className="mb-3 grid grid-cols-3 gap-2 text-center">
-          <Stat n={preview.adds} label="New" color="#2ec16b" />
-          <Stat n={preview.updates} label="Updated" color="#e8b800" />
-          <Stat n={preview.unchanged} label="Same" color="#6b7280" />
+        <div className={cx('mb-3 grid gap-2 text-center', preview.removals ? 'grid-cols-4' : 'grid-cols-3')}>
+          <Stat n={preview.adds} label="New" color="var(--ok-text)" />
+          <Stat n={preview.updates} label="Updated" color="var(--warn-text)" />
+          {preview.removals > 0 && <Stat n={preview.removals} label="Removed" color="var(--danger-text)" />}
+          <Stat n={preview.unchanged} label="Same" color="var(--text-muted)" />
         </div>
         <ul className="mb-3 space-y-1">
           {preview.lines.map((l, i) => (

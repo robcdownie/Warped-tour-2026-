@@ -43,7 +43,7 @@ export function MenuScreen({
         <button
           type="button"
           onClick={onBack}
-          className="min-h-touch min-w-touch flex items-center justify-center rounded-xl text-primary active:bg-black/5"
+          className="min-h-touch min-w-touch flex items-center justify-center rounded-xl text-primary active:bg-[var(--press)]"
           aria-label="Back"
         >
           <ArrowLeft size={22} aria-hidden />

@@ -8,6 +8,7 @@ import { PriorityBadge } from '@/components/PriorityControl';
 import { withEffectiveEnds } from '@/domain/endTimes';
 import { travelMinutes, overrideMap } from '@/domain/travel';
 import { formatTime, formatDuration, dayLabel } from '@/domain/time';
+import { ART } from '@/config/event';
 import type { DayId, Performance } from '@/domain/types';
 
 export function PersonalSchedule({ day }: { day: DayId }) {
@@ -41,6 +42,7 @@ export function PersonalSchedule({ day }: { day: DayId }) {
     return (
       <EmptyState
         Icon={CalendarX}
+        image={ART.emptySchedule}
         title={`No scheduled ${dayLabel(day)} sets`}
         message="Pick bands and add their set times, then your day appears here in order."
       />

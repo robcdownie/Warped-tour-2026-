@@ -74,7 +74,7 @@ export function SettingsScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => v
           onClick={() => onOpenMenu('calibration')}
           className="flex w-full items-center gap-3 rounded-xl bg-[var(--surface-sunken)] p-3 text-left"
         >
-          <MapPinned size={20} className="text-warp-blue-500" aria-hidden />
+          <MapPinned size={20} className="text-accent" aria-hidden />
           <div className="flex-1">
             <div className="text-[14px] font-semibold text-primary">Map calibration</div>
             <div className="text-[12px] text-secondary">{settings.adminUnlocked ? 'Unlocked' : 'Locked'} · reposition map pins</div>
@@ -120,24 +120,27 @@ function Row({
         <div className="text-[12px] text-muted">{hint}</div>
       </div>
       <div className="flex items-center gap-2">
-        <button type="button" onClick={onDec} aria-label="Decrease" className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--surface-sunken)] text-[18px] font-bold">−</button>
+        <button type="button" onClick={onDec} aria-label="Decrease" className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--surface-sunken)] text-[18px] font-bold">−</button>
         <span className="w-14 text-center text-[14px] font-bold text-primary">{value} {suffix}</span>
-        <button type="button" onClick={onInc} aria-label="Increase" className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--surface-sunken)] text-[18px] font-bold">+</button>
+        <button type="button" onClick={onInc} aria-label="Increase" className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--surface-sunken)] text-[18px] font-bold">+</button>
       </div>
     </div>
   );
 }
 
 function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  // Visual track is 28px tall; padding extends the tap target to 44px.
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
       onClick={() => onChange(!on)}
-      className={cx('relative h-7 w-12 shrink-0 rounded-full transition', on ? 'bg-warp-ok' : 'bg-[var(--border-strong)]')}
+      className="min-h-touch min-w-touch -m-2 flex shrink-0 items-center justify-center p-2"
     >
-      <span className={cx('absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition', on ? 'left-[22px]' : 'left-0.5')} />
+      <span className={cx('relative block h-7 w-12 rounded-full transition', on ? 'bg-warp-ok' : 'bg-[var(--border-strong)]')}>
+        <span className={cx('absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition', on ? 'left-[22px]' : 'left-0.5')} />
+      </span>
     </button>
   );
 }

@@ -1,6 +1,7 @@
-import { useEffect, type ReactNode } from 'react';
+import { useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { cx } from './ui';
+import { useModalA11y } from '@/hooks/useModalA11y';
 
 /** Bottom sheet / modal used for artist detail, import flows, confirmations. */
 export function Sheet({
@@ -18,18 +19,9 @@ export function Sheet({
   footer?: ReactNode;
   size?: 'auto' | 'tall' | 'full';
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [open, onClose]);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useModalA11y(open, panelRef, onClose);
 
   if (!open) return null;
 
@@ -38,6 +30,7 @@ export function Sheet({
       className="fixed inset-0 z-50 flex flex-col justify-end"
       role="dialog"
       aria-modal="true"
+      aria-labelledby={title ? titleId : undefined}
     >
       <button
         type="button"
@@ -46,8 +39,10 @@ export function Sheet({
         onClick={onClose}
       />
       <div
+        ref={panelRef}
+        tabIndex={-1}
         className={cx(
-          'relative z-10 mx-auto w-full max-w-[560px] rounded-t-3xl',
+          'relative z-10 mx-auto flex w-full max-w-[560px] flex-col rounded-t-3xl outline-none',
           'surface-card border-b-0 shadow-2xl',
           size === 'full' && 'h-[92vh]',
           size === 'tall' && 'h-[80vh]',
@@ -55,12 +50,12 @@ export function Sheet({
         style={{ background: 'var(--surface-card)' }}
       >
         <div className="flex items-center justify-between border-b border-subtle px-4 py-3">
-          <div className="font-display text-[16px] text-primary">{title}</div>
+          <div id={titleId} className="font-display text-[16px] text-primary">{title}</div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="min-h-touch min-w-touch -mr-2 flex items-center justify-center rounded-xl text-secondary active:bg-black/5"
+            className="min-h-touch min-w-touch -mr-2 flex items-center justify-center rounded-xl text-secondary active:bg-[var(--press)]"
           >
             <X size={22} aria-hidden />
           </button>
@@ -68,7 +63,7 @@ export function Sheet({
         <div
           className={cx(
             'overflow-y-auto px-4 py-4',
-            size === 'auto' ? 'max-h-[70vh]' : 'flex-1',
+            size === 'auto' ? 'max-h-[70vh]' : 'min-h-0 flex-1',
           )}
           style={{
             paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)',

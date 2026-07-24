@@ -98,7 +98,7 @@ export function ScheduleEditor() {
       </div>
 
       {undone && (
-        <p className="mb-2 rounded-lg bg-warp-blue-500/10 px-3 py-1.5 text-[12px] font-semibold text-warp-blue-500">
+        <p className="mb-2 rounded-lg bg-accent-soft px-3 py-1.5 text-[12px] font-semibold text-accent">
           {undone}
         </p>
       )}

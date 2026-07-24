@@ -22,7 +22,22 @@ export const APP_NAME = 'Warped Long Beach Companion';
 export const APP_DISCLAIMER =
   'Unofficial personal companion app. Not affiliated with or endorsed by Vans or Vans Warped Tour.';
 
+/**
+ * Location id of the festival entrance (see src/data/locations.ts). Used as the
+ * origin/fallback point for travel math before a first set or without a stage.
+ */
+export const ENTRANCE_LOCATION_ID = 'shoreline-village-drive-entrance';
+
 /** Base path used for asset URLs (matches vite base + PWA scope). */
 export const BASE_URL = import.meta.env.BASE_URL;
 
 export const MAP_IMAGE_URL = `${BASE_URL}map/festival-map.webp`;
+
+/** Generated artwork (scripts/gen-art.mjs), all offline-bundled + precached. */
+export const ART = {
+  hero: `${BASE_URL}art/hero.webp`,
+  emptyGroup: `${BASE_URL}art/empty-group.webp`,
+  emptySchedule: `${BASE_URL}art/empty-schedule.webp`,
+  emptyMap: `${BASE_URL}art/empty-map.webp`,
+  emptyBands: `${BASE_URL}art/empty-bands.webp`,
+} as const;

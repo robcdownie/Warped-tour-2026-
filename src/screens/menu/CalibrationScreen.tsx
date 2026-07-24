@@ -29,7 +29,7 @@ export function CalibrationScreen() {
     return (
       <Screen>
         <Card className="mt-6 p-6 text-center">
-          <Lock size={36} className="mx-auto mb-3 text-warp-blue-500" aria-hidden />
+          <Lock size={36} className="mx-auto mb-3 text-accent" aria-hidden />
           <h2 className="font-display text-[17px] text-primary">Map Calibration</h2>
           <p className="mx-auto mt-1 max-w-[40ch] text-[13px] text-secondary">
             Admin tool for fine-tuning where pins sit on the map. Changes affect everyone who
@@ -136,7 +136,7 @@ function Calibrator() {
           <div className="mt-1.5 flex items-center gap-3 text-[12px] text-secondary">
             <span className="font-mono">x {selected.xPercent.toFixed(1)}%</span>
             <span className="font-mono">y {selected.yPercent.toFixed(1)}%</span>
-            <span className="flex items-center gap-1 text-warp-blue-500">
+            <span className="flex items-center gap-1 text-accent">
               <Move size={12} aria-hidden /> Tap the map to place
             </span>
           </div>
@@ -283,7 +283,7 @@ function LocationList({
                 onClick={() => onPick(l.id)}
                 className={cx(
                   'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[14px]',
-                  l.id === selectedId ? 'bg-warp-blue-500/10 text-warp-blue-500' : 'text-primary active:bg-black/5',
+                  l.id === selectedId ? 'bg-accent-soft text-accent' : 'text-primary active:bg-[var(--press)]',
                 )}
               >
                 <span className="truncate">{l.name}</span>
@@ -449,7 +449,7 @@ function NudgeBtn({ label, onClick, children }: { label: string; onClick: () => 
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--surface-sunken)] text-[16px] font-bold text-primary active:bg-black/10"
+      className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--surface-sunken)] text-[16px] font-bold text-primary active:bg-[var(--press)]"
     >
       {children}
     </button>

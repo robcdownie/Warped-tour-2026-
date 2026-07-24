@@ -10,6 +10,7 @@ import type {
 import { withEffectiveEnds } from './endTimes';
 import { travelMinutes, overrideMap } from './travel';
 import { hhmmToMinutes } from './time';
+import { ENTRANCE_LOCATION_ID } from '@/config/event';
 
 // Meetup engine (spec §29). Finds windows where friends are simultaneously free
 // and picks a landmark that minimizes the longest individual walk. Never cuts
@@ -73,7 +74,7 @@ interface FreeWindow {
   usesEstimated: boolean;
 }
 
-const ENTRANCE_ID = 'shoreline-village-drive-entrance';
+const ENTRANCE_ID = ENTRANCE_LOCATION_ID;
 
 function userBusy(day: DayId, userId: string, ctx: MeetupCtx): Busy[] {
   const ends = withEffectiveEnds(ctx.allPerformances, ctx.turnoverBuffer);
@@ -91,14 +92,20 @@ function userBusy(day: DayId, userId: string, ctx: MeetupCtx): Busy[] {
         end: end?.minutes ?? hhmmToMinutes(p.startTime!) + 30,
         stageId: p.stageId,
         mustSee: s.priority === 'must-see',
-        estimatedEnd: end?.kind === 'estimated',
+        // Anything but an exact end (estimated, unknown, or the +30 fallback)
+        // means the window boundaries are guesses.
+        estimatedEnd: end?.kind !== 'exact',
       };
     })
     .sort((a, b) => a.start - b.start);
 }
 
 function userFreeWindows(day: DayId, userId: string, ctx: MeetupCtx): FreeWindow[] {
-  const busy = userBusy(day, userId, ctx);
+  // Every attended set blocks meetups, except that Must-See sets become
+  // interruptible when the user explicitly allows it (spec §29 / settings).
+  const busy = userBusy(day, userId, ctx).filter(
+    (b) => !(ctx.allowDuringMustSee && b.mustSee),
+  );
   const windows: FreeWindow[] = [];
   let cursor = ctx.bounds.open;
   let prevStage: string | null = null; // entrance
@@ -187,7 +194,6 @@ export function findMeetups(day: DayId, ctx: MeetupCtx, limit = 6): MeetupSugges
       let meetEnd = e;
       let maxWalk = 0;
       let usesEst = false;
-      let feasible = true;
       for (const w of availWindows) {
         const walkIn = travelBetween(ctx, w.prevStageId, loc.id, omap);
         const arrive = w.start + walkIn;
@@ -201,7 +207,7 @@ export function findMeetups(day: DayId, ctx: MeetupCtx, limit = 6): MeetupSugges
         }
       }
       const dur = meetEnd - meetStart;
-      if (!feasible || dur < ctx.minMeetupMinutes) continue;
+      if (dur < ctx.minMeetupMinutes) continue;
       const better =
         !best ||
         maxWalk < best.maxWalk - 0.01 ||

@@ -63,7 +63,7 @@ export function QrDisplay({ code, className }: { code: string; className?: strin
             type="button"
             onClick={() => setIdx((i) => (i - 1 + chunks.length) % chunks.length)}
             aria-label="Previous part"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface-sunken)]"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--surface-sunken)]"
           >
             <ChevronLeft size={18} aria-hidden />
           </button>
@@ -74,7 +74,7 @@ export function QrDisplay({ code, className }: { code: string; className?: strin
             type="button"
             onClick={() => setIdx((i) => (i + 1) % chunks.length)}
             aria-label="Next part"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface-sunken)]"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--surface-sunken)]"
           >
             <ChevronRight size={18} aria-hidden />
           </button>

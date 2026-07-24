@@ -6,9 +6,9 @@ import { formatMinutes, formatDuration } from '@/domain/time';
 import type { MeetupSuggestion } from '@/domain/meetups';
 
 const CONFIDENCE_META = {
-  high: { label: 'Great fit', color: '#2ec16b' },
-  medium: { label: 'Workable', color: '#e8b800' },
-  low: { label: 'Tight', color: '#ff7a1a' },
+  high: { label: 'Great fit', color: 'var(--ok-text)' },
+  medium: { label: 'Workable', color: 'var(--warn-text)' },
+  low: { label: 'Tight', color: 'var(--color-warp-orange)' },
 } as const;
 
 export function MeetupCard({ meetup, highlight }: { meetup: MeetupSuggestion; highlight?: boolean }) {

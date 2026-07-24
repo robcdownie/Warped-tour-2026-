@@ -56,7 +56,7 @@ export function BandDetailSheet({
         <span
           className={cx(
             'rounded-full px-2.5 py-1 text-[12px] font-semibold',
-            isUnplugged ? 'bg-warp-orange/15 text-warp-orange' : 'bg-warp-blue-500/15 text-warp-blue-500',
+            isUnplugged ? 'bg-warp-orange/15 text-warp-orange' : 'bg-accent-soft text-accent',
           )}
         >
           {isUnplugged ? 'Warped Unplugged' : dayLabel(performance.day)}

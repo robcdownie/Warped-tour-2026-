@@ -7,6 +7,7 @@ import type {
   Priority,
   AttendanceDecision,
   ColorKey,
+  AppSettings,
 } from '@/domain/types';
 import { encodeEnvelope, type Envelope, type PayloadType } from './codec';
 
@@ -124,7 +125,7 @@ export interface BackupData {
   performances: Performance[];
   locations: MapLocation[];
   checkins: CheckIn[];
-  settings?: unknown;
+  settings?: AppSettings;
 }
 
 // ---- Encoders ------------------------------------------------------------
@@ -152,6 +153,8 @@ export interface ImportPreview {
   adds: number;
   updates: number;
   unchanged: number;
+  /** Records currently on this device that the import will delete. */
+  removals: number;
   /** Human-readable summary lines. */
   lines: string[];
   /** Warnings (e.g. unknown performance IDs). */
@@ -174,6 +177,7 @@ export function previewImport(env: Envelope, cur: CurrentState): ImportPreview {
     adds: 0,
     updates: 0,
     unchanged: 0,
+    removals: 0,
     lines: [],
     warnings: [],
   };
@@ -202,6 +206,17 @@ export function previewImport(env: Envelope, cur: CurrentState): ImportPreview {
         base.updates++;
       else base.unchanged++;
     }
+    // The commit replaces this user's selections wholesale — surface what an
+    // older/smaller code would silently delete.
+    const importedIds = new Set(selections.map((s) => s.performanceId));
+    base.removals = [...curForUser.values()].filter(
+      (prev) => prev.selected && !importedIds.has(prev.performanceId),
+    ).length;
+    if (base.removals) {
+      base.warnings.push(
+        `${base.removals} band(s) currently saved for ${user.name} are not in this code and will be removed.`,
+      );
+    }
     base.lines.push(existingUser ? `Updates existing friend "${user.name}"` : `Adds new friend "${user.name}"`);
   } else if (env.type === 'schedule') {
     const d = env.data as ScheduleData;
@@ -221,10 +236,13 @@ export function previewImport(env: Envelope, cur: CurrentState): ImportPreview {
   } else if (env.type === 'coordinates') {
     const d = env.data as CoordinatesData;
     const known = new Map(cur.locations.map((l) => [l.id, l]));
+    const round2 = (n: number) => Math.round(n * 100) / 100;
     for (const t of d.l) {
       const l = known.get(t[0]);
       if (!l) base.adds++;
-      else if (l.xPercent !== t[3] || l.yPercent !== t[4] || l.name !== t[1]) base.updates++;
+      // Export rounds coordinates to 2 decimals — compare like-for-like so a
+      // fresh round-trip doesn't show phantom "updates".
+      else if (round2(l.xPercent) !== t[3] || round2(l.yPercent) !== t[4] || l.name !== t[1]) base.updates++;
       else base.unchanged++;
     }
     base.lines.push(`${d.l.length} map coordinates`);
@@ -238,7 +256,9 @@ export function previewImport(env: Envelope, cur: CurrentState): ImportPreview {
     base.lines.push(
       `Full backup: ${d.users.length} users, ${d.selections.length} selections, ${d.performances.length} performances`,
     );
-    base.warnings.push('Importing a full backup replaces matching records.');
+    base.warnings.push(
+      'Restoring this backup replaces the friends, selections and check-ins on this device with the backup contents.',
+    );
   }
 
   return base;
