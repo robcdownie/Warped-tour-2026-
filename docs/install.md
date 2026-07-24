@@ -21,6 +21,10 @@ The app installs to your Home Screen and then runs fully offline. Do this **once
 
 If step 3 fails, you likely installed before caching finished — delete the Home Screen icon, redo the steps with a solid Wi-Fi connection, and give it a few extra seconds on step 3.
 
+## Safari and the installed app are separate
+
+iOS gives the Safari tab and the installed Home Screen app **separate storage**. Picks you make in one do not appear in the other — this looks like data loss but isn't. Do all your real planning **in the installed app**, and treat the Safari tab as a throwaway preview. (If you already picked bands in Safari: export them there — Menu → Friends & Sharing — and import in the installed app.)
+
 ## Each friend installs their own
 
 Robbie, Ari, and Morgan each install on their own phone and pick “This device is …” under **Menu → Friends & Sharing**. You share picks between phones with QR codes — see [data import/export](data-import-export.md).

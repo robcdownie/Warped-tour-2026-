@@ -50,8 +50,8 @@ export function EmergencyScreen() {
           <div>
             <h2 className="font-display text-[15px] text-primary">Emergency schedule</h2>
             <p className="text-[13px] text-secondary">
-              A plain-text copy of your plan. Save it or screenshot it — it needs no app and no signal.
-              Take a screenshot so it&apos;s in your Photos even if the phone acts up.
+              A plain-text copy of your plan — it needs no app and no signal. Take a screenshot
+              so it&apos;s in your Photos even if the phone acts up.
             </p>
           </div>
         </div>

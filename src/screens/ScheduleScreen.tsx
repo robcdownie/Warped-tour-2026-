@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarDays, Pencil, AlertTriangle, Upload, Download } from 'lucide-react';
+import { CalendarDays, Pencil, AlertTriangle, Upload } from 'lucide-react';
 import { Screen, Button, cx } from '@/components/ui';
 import { EmptyState } from '@/components/EmptyState';
 import { ConflictCard } from '@/components/ConflictCard';
@@ -30,9 +30,11 @@ export function ScheduleScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => v
       <div className="mb-3 flex items-center justify-between">
         <h1 className="font-display text-[22px] text-primary">Schedule</h1>
         <div className="flex gap-1.5">
-          <Button variant="secondary" className="px-3" onClick={() => onOpenMenu('schedule-io')}>
-            <Upload size={16} aria-hidden />
-            <Download size={16} aria-hidden />
+          {/* One labeled control — the twin unlabeled glyphs read as two
+              mystery buttons fused together. */}
+          <Button variant="secondary" className="px-3 text-[13px]" onClick={() => onOpenMenu('schedule-io')}>
+            <Upload size={15} aria-hidden />
+            Import / Export
           </Button>
         </div>
       </div>
@@ -127,7 +129,7 @@ function DayToggle({ day, setDay }: { day: DayId; setDay: (d: DayId) => void }) 
           onClick={() => setDay(d)}
           className={cx(
             'min-h-touch flex-1 rounded-lg text-[14px] font-semibold transition',
-            day === d ? 'bg-warp-blue-500 text-white shadow-sm' : 'text-secondary',
+            day === d ? 'bg-[var(--chip-on)] text-white shadow-sm' : 'text-secondary',
           )}
         >
           {d === 'saturday' ? 'Saturday' : 'Sunday'}
@@ -144,7 +146,7 @@ function SubTab({ active, onClick, children }: { active: boolean; onClick: () =>
       onClick={onClick}
       className={cx(
         'min-h-touch flex items-center justify-center gap-1 rounded-lg text-[13px] font-semibold transition',
-        active ? 'bg-warp-blue-500 text-white shadow-sm' : 'text-secondary',
+        active ? 'bg-[var(--chip-on)] text-white shadow-sm' : 'text-secondary',
       )}
     >
       {children}

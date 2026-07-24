@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Search, X, MapPin, Clock, Check, Music, Unplug, Filter } from 'lucide-react';
 import { Screen, cx } from '@/components/ui';
 import { FriendAvatar } from '@/components/FriendAvatar';
@@ -6,6 +6,7 @@ import { PriorityBadge } from '@/components/PriorityControl';
 import { BandDetailSheet } from './bands/BandDetailSheet';
 import { useApp } from '@/store/appStore';
 import { searchArtists } from '@/domain/matching';
+import { isScheduleLoaded } from '@/store/selectors';
 import { formatTime, dayLabel } from '@/domain/time';
 import type { Performance, Priority, DayId } from '@/domain/types';
 
@@ -28,6 +29,20 @@ export function BandsScreen() {
   const [openPerf, setOpenPerf] = useState<Performance | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Measure the sticky header so the letter headers and A-Z rail stick exactly
+  // below it — a hardcoded offset drifts whenever the header's height changes.
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerH, setHeaderH] = useState(152);
+  useLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const update = () => setHeaderH(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const activeSelById = useMemo(() => {
     const m = new Map<string, (typeof selections)[number]>();
@@ -86,6 +101,7 @@ export function BandsScreen() {
   }, [filtered, artistById]);
 
   const anyFilter = day || type || selState || priority || query;
+  const scheduleLoaded = isScheduleLoaded(performances);
 
   const clearAll = () => {
     setQuery('');
@@ -101,8 +117,8 @@ export function BandsScreen() {
   };
 
   return (
-    <Screen className="pb-28">
-      <div className="sticky top-0 z-10 -mx-4 bg-[var(--surface-app)] px-4 pb-2 pt-3">
+    <Screen>
+      <div ref={headerRef} className="sticky top-0 z-10 -mx-4 border-b border-subtle bg-[var(--surface-app)] px-4 pb-2 pt-3">
         <div className="mb-2 flex items-center justify-between">
           <h1 className="font-display text-[22px] text-primary">My Bands</h1>
           <span className="rounded-full bg-warp-pink/15 px-2.5 py-1 text-[13px] font-bold text-warp-pink">
@@ -155,7 +171,7 @@ export function BandsScreen() {
             Want
           </Chip>
           <Chip active={priority === 'optional'} onClick={() => setPriority(priority === 'optional' ? null : 'optional')}>
-            Optional
+            Maybe
           </Chip>
           <Divider />
           <Chip active={type === 'main'} onClick={() => setType(type === 'main' ? null : 'main')}>
@@ -175,15 +191,17 @@ export function BandsScreen() {
         </div>
       </div>
 
-      {/* Result count */}
+      {/* Result count. One shared line replaces 183 identical per-card
+          "Stage & time pending" rows while no set times exist. */}
       <p className="mb-2 mt-1 text-[12px] text-muted">
-        {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
+        {filtered.length} {filtered.length === 1 ? 'set' : 'sets'}
+        {!scheduleLoaded && ' · stage & times drop close to show day — cards fill in automatically'}
       </p>
 
       {/* List + A-Z rail. min-w-0 is load-bearing: without it the column's
           intrinsic min-content forces the row wider than the viewport and
           pushes the A-Z rail off-screen entirely. */}
-      <div className="flex gap-1">
+      <div className="flex gap-1" style={{ '--bands-header-h': `${headerH}px` } as React.CSSProperties}>
         <div ref={listRef} className="min-w-0 flex-1 space-y-4">
           {sections.length === 0 && (
             <div className="rounded-2xl border border-dashed border-subtle px-6 py-10 text-center">
@@ -197,8 +215,8 @@ export function BandsScreen() {
             </div>
           )}
           {sections.map(([letter, rows]) => (
-            <div key={letter} data-letter={letter}>
-              <div className="sticky top-[132px] z-[1] mb-1 font-display text-[13px] text-muted">{letter}</div>
+            <div key={letter} data-letter={letter} className="scroll-mt-[calc(var(--bands-header-h)+4px)]">
+              <div className="sticky top-[var(--bands-header-h)] z-[1] mb-1 bg-[var(--surface-app)] py-0.5 font-display text-[13px] text-muted">{letter}</div>
               <div className="space-y-2">
                 {rows.map((p) => (
                   <BandCard
@@ -222,13 +240,18 @@ export function BandsScreen() {
         </div>
 
         {sections.length > 3 && (
-          <div className="sticky top-[136px] flex h-min flex-col items-center py-1">
+          <div
+            className="sticky top-[calc(var(--bands-header-h)+4px)] flex h-min flex-col items-center justify-between py-1"
+            /* Cap to the visible area so the rail never runs under the bottom
+               nav — every letter stays reachable even on an iPhone SE. */
+            style={{ maxHeight: 'calc(100dvh - var(--bands-header-h) - 170px)' }}
+          >
             {sections.map(([letter]) => (
               <button
                 key={letter}
                 type="button"
                 onClick={() => jumpTo(letter)}
-                className="flex h-6 w-8 items-center justify-center text-[11px] font-bold text-accent"
+                className="flex min-h-0 w-8 flex-1 items-center justify-center text-[11px] font-bold leading-none text-accent"
                 aria-label={`Jump to ${letter}`}
               >
                 {letter}
@@ -259,12 +282,17 @@ function Chip({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(e) => {
+        onClick();
+        // Keep the chip you just tapped fully visible instead of half-clipped
+        // at the row's faded edge.
+        e.currentTarget.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
+      }}
       aria-pressed={active}
       className={cx(
         'inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border px-3 text-[13px] font-semibold transition',
         active
-          ? 'border-warp-blue-500 bg-warp-blue-500 text-white'
+          ? 'border-[var(--chip-on-border)] bg-[var(--chip-on)] text-white'
           : 'border-subtle bg-[var(--surface-card)] text-secondary',
       )}
     >
@@ -322,15 +350,16 @@ function BandCard({
           {selection?.selected && <PriorityBadge priority={selection.priority} />}
         </span>
         <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-secondary">
-          <span
-            className={cx(
-              'inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold',
-              isUnplugged ? 'bg-warp-orange/15 text-warp-orange' : 'bg-accent-soft text-accent',
-            )}
-          >
-            {isUnplugged ? 'Unplugged' : dayLabel(perf.day)}
+          {/* Day always shows — unplugged acts have a day too. */}
+          <span className="inline-flex items-center rounded bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent">
+            {dayLabel(perf.day)}
           </span>
-          {hasSchedule ? (
+          {isUnplugged && (
+            <span className="inline-flex items-center rounded bg-warp-orange/15 px-1.5 py-0.5 text-[11px] font-semibold text-warp-orange">
+              Unplugged
+            </span>
+          )}
+          {hasSchedule && (
             <>
               <span className="inline-flex items-center gap-0.5">
                 <Clock size={12} aria-hidden />
@@ -341,8 +370,6 @@ function BandCard({
                 {stageName}
               </span>
             </>
-          ) : (
-            <span className="text-muted">Stage &amp; time pending</span>
           )}
         </span>
       </span>

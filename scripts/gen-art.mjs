@@ -1,5 +1,12 @@
-// Generates the app's custom artwork via fal.ai (FLUX dev) and post-processes
-// it with sharp into optimized, offline-bundled assets.
+// Generates the app's custom artwork via fal.ai and post-processes it with
+// sharp into optimized, offline-bundled assets.
+//
+// Two models:
+//   - FLUX dev (default, ~$0.03/img): the original pipeline. Can't render
+//     text (mangled lettering) — keep "no text" in every FLUX prompt.
+//   - Nano Banana 2 (model: 'nb2', $0.08 @1K / $0.12 @2K / $0.16 @4K):
+//     accurate typography and reference-image editing (referenceFrom: keys of
+//     other assets whose raw PNGs style-anchor the edit endpoint).
 //
 // Requires FAL_KEY in .env (gitignored — never shipped to the client; only this
 // local script talks to fal.ai, and only the finished images are committed).
@@ -105,15 +112,53 @@ const ASSETS = {
 };
 
 // ---- fal.ai ---------------------------------------------------------------
-async function generate(key, spec) {
-  console.log(`[fal] generating "${key}" …`);
-  const res = await fetch('https://fal.run/fal-ai/flux/dev', {
+// Spend tracking — printed at the end of every run so the budget stays visible.
+const NB2_RATE = { '0.5K': 0.06, '1K': 0.08, '2K': 0.12, '4K': 0.16 };
+const FLUX_RATE = 0.03; // ~$0.025/MP, our sizes are ~1MP
+let spend = 0;
+
+async function falPost(endpoint, body) {
+  const res = await fetch(`https://fal.run/${endpoint}`, {
     method: 'POST',
     headers: {
       Authorization: `Key ${falKey()}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`fal.ai ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  }
+  return res.json();
+}
+
+function rawAsDataUri(key) {
+  const p = resolve(RAW, `${key}.png`);
+  if (!existsSync(p)) throw new Error(`referenceFrom "${key}" has no raw PNG — generate it first`);
+  return `data:image/png;base64,${readFileSync(p).toString('base64')}`;
+}
+
+async function generate(key, spec) {
+  console.log(`[fal] generating "${key}" (${spec.model === 'nb2' ? 'nano-banana-2' : 'flux/dev'}) …`);
+  let json;
+  if (spec.model === 'nb2') {
+    const body = {
+      prompt: spec.prompt,
+      aspect_ratio: spec.aspect_ratio ?? '1:1',
+      resolution: spec.resolution ?? '1K',
+      num_images: 1,
+      output_format: 'png',
+    };
+    // Reference images route through the edit endpoint for style consistency.
+    const refs = (spec.referenceFrom ?? []).map(rawAsDataUri);
+    if (refs.length) {
+      json = await falPost('fal-ai/nano-banana-2/edit', { ...body, image_urls: refs });
+    } else {
+      json = await falPost('fal-ai/nano-banana-2', body);
+    }
+    spend += NB2_RATE[body.resolution] ?? NB2_RATE['1K'];
+  } else {
+    json = await falPost('fal-ai/flux/dev', {
       prompt: spec.prompt,
       image_size: spec.image_size,
       num_images: 1,
@@ -121,12 +166,9 @@ async function generate(key, spec) {
       guidance_scale: 3.5,
       enable_safety_checker: true,
       output_format: 'png',
-    }),
-  });
-  if (!res.ok) {
-    throw new Error(`fal.ai ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    });
+    spend += FLUX_RATE;
   }
-  const json = await res.json();
   const url = json?.images?.[0]?.url;
   if (!url) throw new Error(`fal.ai returned no image for ${key}`);
   const img = await fetch(url);
@@ -177,7 +219,7 @@ async function main() {
     }
     await postProcess(key, spec, raw);
   }
-  console.log('Done.');
+  console.log(spend > 0 ? `Done. Estimated fal.ai spend this run: $${spend.toFixed(2)}` : 'Done.');
 }
 
 main().catch((e) => {

@@ -22,7 +22,9 @@ export const PRIORITY_META: Record<
     bg: 'color-mix(in srgb, var(--accent-text) 14%, transparent)',
   },
   optional: {
-    label: 'Optional',
+    // One word everywhere — the badge said "Maybe" while the control and
+    // filters said "Optional", which read as two different tiers.
+    label: 'Maybe',
     short: 'Maybe',
     Icon: Circle,
     color: 'var(--text-muted)',

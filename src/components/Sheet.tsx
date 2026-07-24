@@ -66,7 +66,7 @@ export function Sheet({
             size === 'auto' ? 'max-h-[70vh]' : 'min-h-0 flex-1',
           )}
           style={{
-            paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)',
+            paddingBottom: 'calc(var(--safe-bottom) + 1rem)',
           }}
         >
           {children}
@@ -74,7 +74,7 @@ export function Sheet({
         {footer && (
           <div
             className="border-t border-subtle px-4 py-3"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+            style={{ paddingBottom: 'calc(var(--safe-bottom) + 0.75rem)' }}
           >
             {footer}
           </div>

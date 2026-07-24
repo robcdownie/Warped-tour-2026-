@@ -21,6 +21,16 @@ const VIEWPORTS = [
   { name: 'iphone-390x844', width: 390, height: 844, colorScheme: 'light' },
   { name: 'iphone-390x844-dark', width: 390, height: 844, colorScheme: 'dark' },
   { name: 'iphone-se-375x667', width: 375, height: 667, colorScheme: 'light' },
+  // Installed-PWA simulation: headless Chromium resolves env(safe-area-inset-*)
+  // to 0, so standalone-only layout bugs (double insets, home-indicator
+  // collisions) are invisible in the passes above. The app reads insets via
+  // --safe-top/--safe-bottom (theme.css), which this pass injects to match an
+  // iPhone 16 Pro Max home-screen launch.
+  {
+    name: 'iphone-16pm-standalone-440x956',
+    width: 440, height: 956, colorScheme: 'light',
+    safeArea: { top: 59, bottom: 34 },
+  },
 ];
 
 const MIME = {
@@ -74,6 +84,19 @@ async function walk(browser, base, vp) {
     userAgent:
       'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
   });
+  if (vp.safeArea) {
+    // Inline styles on <html> beat the :root declarations and survive the
+    // SW-controlled reload below (init scripts re-run on every navigation).
+    await context.addInitScript(({ top, bottom }) => {
+      const apply = () => {
+        const s = document.documentElement.style;
+        s.setProperty('--safe-top', `${top}px`);
+        s.setProperty('--safe-bottom', `${bottom}px`);
+      };
+      if (document.documentElement) apply();
+      else document.addEventListener('DOMContentLoaded', apply);
+    }, vp.safeArea);
+  }
   const page = await context.newPage();
   let screen = 'boot';
   const shots = [];
@@ -116,6 +139,14 @@ async function walk(browser, base, vp) {
   if (await tap('nav[aria-label="Primary"] button[aria-label="Bands"]')) {
     await page.waitForTimeout(500);
     await shoot('bands', { full: true });
+    // Viewport-clipped scrolled frame: fullPage shots never engage sticky or
+    // fixed positioning, so this is the only still that shows the pinned
+    // search header, letter tuck-under, A-Z rail, and BottomNav inset.
+    await page.evaluate(() => { document.querySelector('main').scrollTop = 600; });
+    await page.waitForTimeout(400);
+    await shoot('bands-scrolled');
+    await page.evaluate(() => { document.querySelector('main').scrollTop = 0; });
+    await page.waitForTimeout(200);
   }
 
   screen = 'schedule';

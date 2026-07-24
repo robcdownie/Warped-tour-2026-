@@ -12,7 +12,7 @@ export function TopBar({
 }) {
   return (
     <header
-      className="sticky top-0 z-30 pt-[env(safe-area-inset-top)]"
+      className="sticky top-0 z-30 pt-safe"
       style={{
         background: 'linear-gradient(180deg, #1f5fa8 0%, #0b2f6b 100%)',
       }}

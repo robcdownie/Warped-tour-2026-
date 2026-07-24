@@ -19,7 +19,6 @@ import { useModalA11y } from '@/hooks/useModalA11y';
 export type MenuRoute =
   | 'settings'
   | 'friends'
-  | 'share'
   | 'schedule-io'
   | 'data'
   | 'offline-test'
@@ -68,11 +67,11 @@ export function MenuDrawer({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="absolute left-0 top-0 h-full w-[86%] max-w-[360px] overflow-y-auto shadow-2xl outline-none"
+        className="pb-safe absolute left-0 top-0 h-full w-[86%] max-w-[360px] overflow-y-auto shadow-2xl outline-none"
         style={{ background: 'var(--surface-card)' }}
       >
         <div
-          className="flex items-center justify-between px-4 py-4 pt-[calc(env(safe-area-inset-top)+1rem)]"
+          className="flex items-center justify-between px-4 py-4 pt-[calc(var(--safe-top)+1rem)]"
           style={{ background: 'linear-gradient(180deg,#1f5fa8,#0b2f6b)' }}
         >
           <div>

@@ -46,7 +46,7 @@ export function GroupScreen({ onGoTab }: { onGoTab: (t: TabId) => void }) {
             onClick={() => setDay(d)}
             className={cx(
               'min-h-touch flex-1 rounded-lg text-[14px] font-semibold transition',
-              day === d ? 'bg-warp-blue-500 text-white shadow-sm' : 'text-secondary',
+              day === d ? 'bg-[var(--chip-on)] text-white shadow-sm' : 'text-secondary',
             )}
           >
             {d === 'saturday' ? 'Saturday' : 'Sunday'}
@@ -55,16 +55,19 @@ export function GroupScreen({ onGoTab }: { onGoTab: (t: TabId) => void }) {
       </div>
 
       {/* View chips */}
-      <div className="no-scrollbar scroll-fade-r -mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4">
+      <div className="no-scrollbar scroll-fade-x -mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4">
         {VIEWS.map(({ id, label, Icon }) => (
           <button
             key={id}
             type="button"
-            onClick={() => setView(id)}
+            onClick={(e) => {
+              setView(id);
+              e.currentTarget.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
+            }}
             aria-pressed={view === id}
             className={cx(
               'inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border px-3 text-[13px] font-semibold',
-              view === id ? 'border-warp-blue-500 bg-warp-blue-500 text-white' : 'border-subtle bg-[var(--surface-card)] text-secondary',
+              view === id ? 'border-[var(--chip-on-border)] bg-[var(--chip-on)] text-white' : 'border-subtle bg-[var(--surface-card)] text-secondary',
             )}
           >
             <Icon size={14} aria-hidden /> {label}
@@ -210,7 +213,7 @@ function SharedView({ day }: { day: DayId }) {
               </div>
             </div>
             <span className="rounded-full bg-warp-pink/15 px-2 py-1 text-[12px] font-bold text-warp-pink">
-              {slot.attendees.length} going
+              {slot.attendees.length} picked this
             </span>
           </div>
           <div className="mt-2">

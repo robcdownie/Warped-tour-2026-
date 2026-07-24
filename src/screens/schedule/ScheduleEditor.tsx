@@ -225,7 +225,7 @@ function DayTab({ active, onClick, children }: { active: boolean; onClick: () =>
       onClick={onClick}
       className={cx(
         'min-h-touch rounded-lg px-4 text-[14px] font-semibold transition',
-        active ? 'bg-warp-blue-500 text-white shadow-sm' : 'text-secondary',
+        active ? 'bg-[var(--chip-on)] text-white shadow-sm' : 'text-secondary',
       )}
     >
       {children}
@@ -252,7 +252,7 @@ function IconTab({
       aria-pressed={active}
       className={cx(
         'min-h-touch flex items-center justify-center rounded-lg px-3 transition',
-        active ? 'bg-warp-blue-500 text-white shadow-sm' : 'text-secondary',
+        active ? 'bg-[var(--chip-on)] text-white shadow-sm' : 'text-secondary',
       )}
     >
       {children}
@@ -267,8 +267,8 @@ function MissChip({ active, onClick, children }: { active: boolean; onClick: () 
       onClick={onClick}
       aria-pressed={active}
       className={cx(
-        'rounded-full border px-3 py-1 text-[12px] font-semibold',
-        active ? 'border-warp-blue-500 bg-warp-blue-500 text-white' : 'border-subtle bg-[var(--surface-card)] text-secondary',
+        'min-h-9 rounded-full border px-3 text-[12px] font-semibold',
+        active ? 'border-[var(--chip-on-border)] bg-[var(--chip-on)] text-white' : 'border-subtle bg-[var(--surface-card)] text-secondary',
       )}
     >
       {children}

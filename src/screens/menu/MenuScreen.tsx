@@ -14,7 +14,6 @@ import { DemoScreen } from './DemoScreen';
 const TITLES: Record<MenuRoute, string> = {
   settings: 'Settings',
   friends: 'Friends & Sharing',
-  share: 'Share',
   'schedule-io': 'Schedule Import / Export',
   data: 'Backup & Data',
   'offline-test': 'Offline Test',
@@ -37,7 +36,7 @@ export function MenuScreen({
   return (
     <div>
       <div
-        className="sticky top-0 z-20 flex items-center gap-2 px-2 py-2 pt-[calc(env(safe-area-inset-top)+0.25rem)]"
+        className="sticky top-0 z-20 flex items-center gap-2 px-2 py-2 pt-1"
         style={{ background: 'var(--surface-app)' }}
       >
         <button
@@ -77,7 +76,5 @@ function RouteBody({ route, onNavigate }: { route: MenuRoute; onNavigate: (r: Me
       return <DataScreen />;
     case 'demo':
       return <DemoScreen />;
-    case 'share':
-      return <FriendsScreen />;
   }
 }

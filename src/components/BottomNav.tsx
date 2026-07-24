@@ -24,7 +24,7 @@ export function BottomNav({
       style={{ background: 'var(--nav-bg)' }}
       aria-label="Primary"
     >
-      <div className="mx-auto flex max-w-[560px] items-stretch justify-around pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-auto flex max-w-[560px] items-stretch justify-around pb-safe">
         {TABS.map(({ id, label, Icon }) => {
           const isActive = active === id;
           return (

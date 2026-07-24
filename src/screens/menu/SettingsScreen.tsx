@@ -31,7 +31,7 @@ export function SettingsScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => v
       {/* Appearance */}
       <Card className="mb-4 p-4">
         <h2 className="mb-3 font-display text-[14px] uppercase tracking-wide text-secondary">Appearance</h2>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Theme">
           <ThemeBtn active={settings.theme === 'system'} onClick={() => updateSettings({ theme: 'system' })} Icon={Smartphone} label="System" />
           <ThemeBtn active={settings.theme === 'light'} onClick={() => updateSettings({ theme: 'light' })} Icon={Sun} label="Light" />
           <ThemeBtn active={settings.theme === 'dark'} onClick={() => updateSettings({ theme: 'dark' })} Icon={Moon} label="Dark" />
@@ -59,8 +59,8 @@ export function SettingsScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => v
         />
         <label className="mt-2 flex items-center justify-between gap-3 py-2">
           <span className="flex-1">
-            <span className="block text-[14px] font-semibold text-primary">Allow meetups during Must-See sets</span>
-            <span className="block text-[12px] text-muted">Off by default — we never suggest leaving a Must-See early.</span>
+            <span className="block text-[14px] font-semibold text-primary">Allow meetups during Must See sets</span>
+            <span className="block text-[12px] text-muted">Off by default — we never suggest leaving a Must See early.</span>
           </span>
           <Toggle on={settings.allowMeetupDuringMustSee} onChange={(v) => updateSettings({ allowMeetupDuringMustSee: v })} />
         </label>
@@ -89,6 +89,8 @@ function ThemeBtn({ active, onClick, Icon, label }: { active: boolean; onClick: 
   return (
     <button
       type="button"
+      role="radio"
+      aria-checked={active}
       onClick={onClick}
       className={cx('flex flex-col items-center gap-1 rounded-xl border-2 p-3', active ? 'border-warp-pink bg-warp-pink/5' : 'border-subtle')}
     >
@@ -138,7 +140,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
       onClick={() => onChange(!on)}
       className="min-h-touch min-w-touch -m-2 flex shrink-0 items-center justify-center p-2"
     >
-      <span className={cx('relative block h-7 w-12 rounded-full transition', on ? 'bg-warp-ok' : 'bg-[var(--border-strong)]')}>
+      <span className={cx('relative block h-7 w-12 rounded-full transition', on ? 'bg-warp-ok' : 'bg-[var(--track-off)]')}>
         <span className={cx('absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition', on ? 'left-[22px]' : 'left-0.5')} />
       </span>
     </button>

@@ -71,8 +71,8 @@ export function DataScreen() {
         <h2 className="mb-1 font-display text-[15px] text-primary">Reset</h2>
         <p className="mb-3 text-[13px] text-secondary">These can&apos;t be undone. Export a backup first if unsure.</p>
         <div className="space-y-2">
-          <RowBtn Icon={CalendarX} label="Reset schedule only" desc="Clear all set times, keep your picks" onClick={() => setConfirm('schedule')} />
-          <RowBtn Icon={MapPinned} label="Reset map only" desc="Restore seed pin positions" onClick={() => setConfirm('map')} />
+          <RowBtn Icon={CalendarX} label="Reset schedule only" desc="Clear all set times, keep your picks" danger onClick={() => setConfirm('schedule')} />
+          <RowBtn Icon={MapPinned} label="Reset map only" desc="Restore seed pin positions" danger onClick={() => setConfirm('map')} />
           <RowBtn Icon={Trash2} label="Reset all local data" desc="Wipe everything and re-seed" danger onClick={() => setConfirm('all')} />
         </div>
       </Card>

@@ -13,7 +13,7 @@ export function UpdateToast() {
   if (!state?.needRefresh || dismissed) return null;
 
   return (
-    <div className="fixed inset-x-3 bottom-24 z-50 mx-auto max-w-[520px]">
+    <div className="fixed inset-x-3 bottom-[calc(var(--safe-bottom)+6rem)] z-50 mx-auto max-w-[520px]">
       <div className="surface-card flex items-center gap-3 rounded-2xl border border-subtle p-3 shadow-xl">
         <RefreshCw size={20} className="text-accent" aria-hidden />
         <div className="flex-1 text-[13px] text-primary">

@@ -21,8 +21,8 @@ export function DemoScreen() {
             <h2 className="font-display text-[15px] text-primary">Demo Mode</h2>
             <p className="text-[13px] text-secondary">
               Loads a full <b>fictional</b> schedule so you can try conflicts, meetups, and the map
-              before the real set times drop. Demo data is kept completely separate from your real
-              plan — nothing here touches production.
+              before the real set times drop. Demo data is kept completely separate — your real
+              plan is never touched.
             </p>
           </div>
         </div>
@@ -32,7 +32,7 @@ export function DemoScreen() {
         <div className="mb-3 flex items-center gap-2">
           <span className={`h-2.5 w-2.5 rounded-full ${isDemo ? 'bg-warp-yellow' : 'bg-warp-ok'}`} aria-hidden />
           <span className="text-[14px] font-semibold text-primary">
-            Currently in {isDemo ? 'Demo Mode' : 'normal (production) mode'}
+            {isDemo ? 'Currently in Demo Mode' : 'Normal mode — your real plan is active'}
           </span>
         </div>
         {isDemo ? (

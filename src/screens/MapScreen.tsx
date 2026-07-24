@@ -42,7 +42,10 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
   const putCheckIn = useApp((s) => s.putCheckIn);
   const ctx = useGroupCtx();
 
-  const [active, setActive] = useState<Set<FilterKey>>(new Set(['friends']));
+  // Stages + entrances start explicitly ON (they used to be an invisible
+  // "empty set" default, which made the Stages chip look like a no-op — the
+  // chips should honestly reflect what's on the map).
+  const [active, setActive] = useState<Set<FilterKey>>(new Set(['friends', 'stages', 'entrances']));
   const [matterNow, setMatterNow] = useState(false);
   const [day, setDay] = useState<DayId>(defaultDay);
   const [sliderMin, setSliderMin] = useState<number>(() =>
@@ -157,11 +160,14 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
             <button
               key={k}
               type="button"
-              onClick={() => toggle(k)}
+              onClick={(e) => {
+                toggle(k);
+                e.currentTarget.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
+              }}
               aria-pressed={active.has(k)}
               className={cx(
                 'inline-flex min-h-9 shrink-0 items-center rounded-full border px-3 text-[13px] font-semibold',
-                active.has(k) && !matterNow ? 'border-warp-blue-500 bg-warp-blue-500 text-white' : 'border-subtle bg-[var(--surface-card)] text-secondary',
+                active.has(k) && !matterNow ? 'border-[var(--chip-on-border)] bg-[var(--chip-on)] text-white' : 'border-subtle bg-[var(--surface-card)] text-secondary',
               )}
             >
               {FILTER_LABELS[k]}
@@ -239,7 +245,7 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
       </div>
 
       {/* Bottom controls: time slider + check-in */}
-      <div className="border-t border-subtle bg-[var(--surface-card)] px-3 pb-[calc(env(safe-area-inset-bottom)+5rem)] pt-2">
+      <div className="border-t border-subtle bg-[var(--surface-card)] px-3 pb-[calc(var(--safe-bottom)+5rem)] pt-2">
         <div className="mb-1.5 flex items-center gap-2">
           <div className="flex rounded-lg bg-[var(--surface-sunken)] p-0.5">
             {(['saturday', 'sunday'] as DayId[]).map((d) => (
@@ -247,7 +253,7 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
                 key={d}
                 type="button"
                 onClick={() => { setDay(d); setFollowNow(false); }}
-                className={cx('rounded px-2 py-1 text-[12px] font-bold', day === d ? 'bg-warp-blue-500 text-white' : 'text-secondary')}
+                className={cx('rounded px-2 py-1 text-[12px] font-bold', day === d ? 'bg-[var(--chip-on)] text-white' : 'text-secondary')}
               >
                 {d === 'saturday' ? 'Sat' : 'Sun'}
               </button>
@@ -279,6 +285,7 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
           value={atMinute}
           onChange={(e) => { setFollowNow(false); setSliderMin(Number(e.target.value)); }}
           aria-label="Time of day"
+          aria-valuetext={formatMinutes(atMinute)}
           className="w-full accent-warp-pink"
         />
         <div className="mt-1 flex items-center justify-between">

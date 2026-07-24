@@ -159,7 +159,7 @@ function Calibrator() {
       </div>
 
       {/* Toolbar */}
-      <div className="border-t border-subtle bg-[var(--surface-card)] px-3 pb-[calc(env(safe-area-inset-bottom)+5rem)] pt-2">
+      <div className="border-t border-subtle bg-[var(--surface-card)] px-3 pb-[calc(var(--safe-bottom)+5rem)] pt-2">
         {/* Nudge pad */}
         <div className="mb-2 flex items-center justify-center gap-2">
           <NudgeBtn label="Left" onClick={() => nudge(-0.5, 0)}>←</NudgeBtn>

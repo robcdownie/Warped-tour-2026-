@@ -63,7 +63,7 @@ function PreSchedule({
           className="absolute inset-0"
           style={{ background: 'linear-gradient(180deg, rgba(8,36,80,0.25) 0%, rgba(8,36,80,0.05) 45%, rgba(5,25,58,0.78) 100%)' }}
         />
-        <div className="relative px-5 pb-5 pt-16">
+        <div className="relative px-5 pb-5 pt-16 [@media(max-height:700px)]:pt-8">
           <div className="font-display text-[30px] leading-none text-white" style={{ textShadow: '2px 2px 0 #0a0f1c' }}>
             WARPED TOUR
           </div>
@@ -122,28 +122,43 @@ function PreSchedule({
           <Stat Icon={Star} iconClass="text-warp-pink" value={satCount} label="Bands Sat" />
           <Stat Icon={Star} iconClass="text-accent" value={sunCount} label="Bands Sun" />
           <Stat Icon={Users} iconClass="text-warp-orange" value={friendsImported} label="Friends" />
-          <Stat Icon={Flag} iconClass="text-warp-ok" value={'--'} label="Meetups" />
+          {/* A real zero — "--" read as a broken widget next to its siblings. */}
+          <Stat Icon={Flag} iconClass="text-warp-ok" value={0} label="Meetups" />
         </div>
       </Card>
 
-      {/* Next up — honest empty state until set times exist */}
+      {/* Next up — honest empty state that routes to the user's actual next
+          step: pick bands first, then worry about set times. */}
       <Card className="mb-4 p-4">
         <h2 className="mb-3 font-display text-[15px] uppercase tracking-wide text-secondary">
           Next Up
         </h2>
         <button
           type="button"
-          onClick={() => onOpenMenu('schedule-io')}
+          onClick={() => (satCount + sunCount === 0 ? onGoTab('bands') : onOpenMenu('schedule-io'))}
           className="flex w-full items-center gap-3 text-left"
         >
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--surface-sunken)] text-muted">
             <Clock size={22} aria-hidden />
           </span>
           <span className="flex-1">
-            <span className="block text-[14px] font-semibold text-primary">Nothing scheduled yet</span>
-            <span className="block text-[13px] text-muted">
-              Your next set shows here once times are loaded.
-            </span>
+            {satCount + sunCount === 0 ? (
+              <>
+                <span className="block text-[14px] font-semibold text-primary">No plan yet</span>
+                <span className="block text-[13px] text-muted">
+                  Start by picking your bands — your next set shows here.
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="block text-[14px] font-semibold text-primary">
+                  {satCount + sunCount} bands picked — waiting on set times
+                </span>
+                <span className="block text-[13px] text-muted">
+                  Import or enter times and your next set shows here.
+                </span>
+              </>
+            )}
           </span>
           <ChevronRight className="text-muted" aria-hidden />
         </button>

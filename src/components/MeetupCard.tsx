@@ -34,9 +34,10 @@ export function MeetupCard({ meetup, highlight }: { meetup: MeetupSuggestion; hi
           <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-[14px] text-secondary">
             <MapPin size={14} className="shrink-0" aria-hidden />
             <span className="font-semibold text-primary">{meetup.location.name}</span>
-            {/* nowrap so the duration drops to its own line as a unit instead
-                of splitting mid-phrase when the location name is long */}
-            <span className="whitespace-nowrap text-muted">· {formatDuration(meetup.durationMinutes)}</span>
+            {/* Parenthesized + nowrap: reads fine inline AND when a long
+                location name pushes it to its own line (a leading "·" there
+                looked like a typo). */}
+            <span className="whitespace-nowrap text-muted">({formatDuration(meetup.durationMinutes)})</span>
           </div>
         </div>
         <span

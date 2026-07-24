@@ -114,7 +114,8 @@ export function plannedPosition(
         label: `Heading to ${next.stage?.name ?? 'first set'}`,
       };
     }
-    return { ...base, kind: 'not-arrived', label: 'Not at their first set yet' };
+    // Pronoun-free: the same label renders for "you" and for friends.
+    return { ...base, kind: 'not-arrived', label: 'Not at the first set yet' };
   }
 
   // Between sets.

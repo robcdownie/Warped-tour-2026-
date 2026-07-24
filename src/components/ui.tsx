@@ -64,8 +64,10 @@ export function Screen({
   return (
     <div
       className={cx(
-        'mx-auto w-full max-w-[560px] px-4 pb-28',
-        'pt-[calc(env(safe-area-inset-top)+0.5rem)]',
+        // No safe-area term here: Screen renders inside <main>, below the
+        // TopBar, which already absorbs the top inset. Double-counting it
+        // opened a ~59pt dead band on every screen in the installed PWA.
+        'mx-auto w-full max-w-[560px] px-4 pb-28 pt-2',
         className,
       )}
     >

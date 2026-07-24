@@ -53,12 +53,13 @@ export function App() {
 
   return (
     <div className="surface-app relative flex h-full flex-col">
+      <TopBar onMenu={() => setMenuOpen(true)} />
+      {/* Below TopBar so it clears the iOS status bar in the installed PWA. */}
       {mode === 'demo' && (
         <div className="bg-warp-yellow px-3 py-1 text-center text-[12px] font-bold text-warp-ink">
           DEMO MODE — sample set times, not the real schedule
         </div>
       )}
-      <TopBar onMenu={() => setMenuOpen(true)} />
 
       <main className="flex-1 overflow-y-auto">
         {menuRoute ? (

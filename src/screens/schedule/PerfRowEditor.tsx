@@ -111,7 +111,7 @@ function TimeField({
             type="button"
             aria-label={`Clear ${label}`}
             onClick={() => onCommit(null)}
-            className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-muted active:bg-black/10"
+            className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted active:bg-black/10"
           >
             <X size={14} aria-hidden />
           </button>
