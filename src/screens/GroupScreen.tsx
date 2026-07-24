@@ -130,7 +130,15 @@ function TimelineView({ day }: { day: DayId }) {
   const ctx = useGroupCtx();
   const artistById = useApp((s) => s.artistById);
   const slots = useMemo(() => groupTimeline(day, ctx), [day, ctx]);
-  if (!slots.length) return <EmptyState Icon={CalendarClock} title="Nothing planned yet" message="No one has a scheduled set this day." />;
+  if (!slots.length)
+    return (
+      <EmptyState
+        Icon={CalendarClock}
+        image={ART.emptyTimeline}
+        title="Nothing planned yet"
+        message="No one has a scheduled set this day."
+      />
+    );
   return (
     <div className="space-y-2">
       {slots.map((slot) => (
@@ -227,7 +235,14 @@ function SharedView({ day }: { day: DayId }) {
   const artistById = useApp((s) => s.artistById);
   const shared = useMemo(() => sharedSets(day, ctx), [day, ctx]);
   if (!shared.length)
-    return <EmptyState Icon={Star} title="No shared sets yet" message="When two or more of you pick the same set, it shows here." />;
+    return (
+      <EmptyState
+        Icon={Star}
+        image={ART.emptyShared}
+        title="No shared sets yet"
+        message="When two or more of you pick the same set, it shows here."
+      />
+    );
   return (
     <div className="space-y-2">
       {shared.map((slot) => (
@@ -284,7 +299,14 @@ function ConflictsView({ day }: { day: DayId }) {
   ];
   const anyConflicts = robbie.length + ari.length + morgan.length > 0;
   if (!anyConflicts)
-    return <EmptyState Icon={AlertTriangle} title="No conflicts" message="No one has a clash on their plan this day." />;
+    return (
+      <EmptyState
+        Icon={AlertTriangle}
+        image={ART.noConflicts}
+        title="No conflicts"
+        message="No one has a clash on their plan this day."
+      />
+    );
   return (
     <div className="space-y-3">
       {byUser.map(([uid, list]) => {

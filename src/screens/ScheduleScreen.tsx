@@ -105,6 +105,7 @@ function ConflictsView({ day, setDay }: { day: DayId; setDay: (d: DayId) => void
       {conflicts.length === 0 ? (
         <EmptyState
           Icon={CalendarDays}
+          image={ART.noConflicts}
           title="No conflicts"
           message="Nothing clashes on your plan for this day. Nice."
         />

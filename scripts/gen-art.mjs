@@ -47,11 +47,20 @@ const STYLE =
 
 const ASSETS = {
   hero: {
+    // July 2026: replaced the FLUX original with the NB2 remake Robbie picked
+    // from three candidates (same composition, sharper at 2K). The raw is the
+    // NB2 output; regenerating edits it in place via referenceFrom.
+    model: 'nb2',
+    referenceFrom: ['hero'],
     prompt:
-      `${STYLE}, wide panorama of the Long Beach California waterfront at golden hour: ` +
-      'palm trees, an outdoor concert stage with a crowd throwing fists up, a skate ramp, ' +
-      'the Queen Mary ship silhouette on the horizon, seagulls, halftone sun',
-    image_size: { width: 1440, height: 768 },
+      'Redraw this scene in the same flat screen-print punk poster style at higher ' +
+      'fidelity: wide panorama of the Long Beach California waterfront at golden hour, ' +
+      'palm trees framing the edges, an outdoor concert stage with a crowd throwing ' +
+      'fists up, a skate ramp, the Queen Mary ocean liner silhouette on the horizon, ' +
+      'seagulls, giant halftone sun low over the water. Deep navy, hot pink, bright ' +
+      'yellow, white. No text, no words, no letters, no watermark.',
+    aspect_ratio: '16:9',
+    resolution: '2K',
     out: [{ file: 'hero.webp', width: 1080, quality: 80 }],
   },
   icon: {
@@ -109,6 +118,70 @@ const ASSETS = {
     deriveFrom: 'icon',
     out: [{ file: 'empty-bands.webp', width: 480, quality: 80 }],
   },
+
+  // ---- July 2026 art pass (Nano Banana 2) --------------------------------
+  // Style-matched to the FLUX originals via reference images on the /edit
+  // endpoint. Every prompt demands an edge-to-edge navy background: the
+  // original empty-group baked in a light "postcard" frame that glowed like a
+  // theming bug on dark mode.
+  'empty-group-v2': {
+    model: 'nb2',
+    referenceFrom: ['empty-group'],
+    prompt:
+      'Redraw this illustration in the exact same flat screen-print punk poster style, ' +
+      'but with the deep navy blue background filling the entire square edge to edge — ' +
+      'no frame, no border, no postcard edges, no pale margins. Keep the three punk ' +
+      'friends fist-bump huddle, mohawk beanie and cap silhouettes, yellow burst. ' +
+      'No text, no words, no letters, no watermark.',
+    aspect_ratio: '1:1',
+    resolution: '1K',
+    out: [{ file: 'empty-group.webp', width: 480, quality: 80 }],
+  },
+  'empty-timeline': {
+    model: 'nb2',
+    referenceFrom: ['empty-schedule', 'empty-map'],
+    prompt:
+      'In the exact same flat screen-print punk rock poster style as the reference ' +
+      'images (deep navy blue background filling the whole square edge to edge, hot ' +
+      'pink and bright yellow and white accents, subtle risograph grain, bold thick ' +
+      'shapes, clean silhouettes): a wall calendar page pierced by a yellow lightning ' +
+      'bolt, with a wristwatch resting beside it, centered spot illustration. ' +
+      'No text, no words, no letters, no numbers, no frame, no border.',
+    aspect_ratio: '1:1',
+    resolution: '1K',
+    out: [{ file: 'empty-timeline.webp', width: 480, quality: 80 }],
+  },
+  'empty-shared': {
+    model: 'nb2',
+    referenceFrom: ['empty-schedule', 'empty-map'],
+    prompt:
+      'In the exact same flat screen-print punk rock poster style as the reference ' +
+      'images (deep navy blue background filling the whole square edge to edge, hot ' +
+      'pink and bright yellow and white accents, subtle risograph grain, bold thick ' +
+      'shapes, clean silhouettes): two hands fist-bumping in front of one big shared ' +
+      'yellow star with a radiating burst, centered spot illustration. ' +
+      'No text, no words, no letters, no frame, no border.',
+    aspect_ratio: '1:1',
+    resolution: '1K',
+    out: [{ file: 'empty-shared.webp', width: 480, quality: 80 }],
+  },
+  'no-conflicts': {
+    model: 'nb2',
+    referenceFrom: ['empty-schedule', 'empty-map'],
+    prompt:
+      'In the exact same flat screen-print punk rock poster style as the reference ' +
+      'images (deep navy blue background filling the whole square edge to edge, hot ' +
+      'pink and bright yellow and white accents, subtle risograph grain, bold thick ' +
+      'shapes, clean silhouettes): a relaxed punk with a mohawk lounging in a beach ' +
+      'chair wearing sunglasses, giving a thumbs up, sun burst behind, palm tree, ' +
+      'celebratory and easy-going, centered spot illustration. ' +
+      'No text, no words, no letters, no frame, no border.',
+    aspect_ratio: '1:1',
+    resolution: '1K',
+    out: [{ file: 'no-conflicts.webp', width: 480, quality: 80 }],
+  },
+  // (Two unused July 2026 hero candidates — lettered poster and pit view —
+  // survive as raws in scripts/.art-raw/hero-nb-{2,3}.png if ever wanted.)
 };
 
 // ---- fal.ai ---------------------------------------------------------------

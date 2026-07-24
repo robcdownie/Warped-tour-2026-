@@ -40,4 +40,7 @@ export const ART = {
   emptySchedule: `${BASE_URL}art/empty-schedule.webp`,
   emptyMap: `${BASE_URL}art/empty-map.webp`,
   emptyBands: `${BASE_URL}art/empty-bands.webp`,
+  emptyTimeline: `${BASE_URL}art/empty-timeline.webp`,
+  emptyShared: `${BASE_URL}art/empty-shared.webp`,
+  noConflicts: `${BASE_URL}art/no-conflicts.webp`,
 } as const;
