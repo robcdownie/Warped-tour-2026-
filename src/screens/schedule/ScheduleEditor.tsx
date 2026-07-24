@@ -45,15 +45,11 @@ export function ScheduleEditor() {
         if (miss === 'no-time' && p.startTime) return false;
         return true;
       })
-      .sort((a, b) => {
-        // Unscheduled first (fast entry), then by start time, then name.
-        const aHas = a.startTime ? 1 : 0;
-        const bHas = b.startTime ? 1 : 0;
-        if (aHas !== bHas) return aHas - bHas;
-        if (a.startTime && b.startTime && a.startTime !== b.startTime)
-          return a.startTime < b.startTime ? -1 : 1;
-        return (artistById.get(a.artistId)?.name ?? '').localeCompare(artistById.get(b.artistId)?.name ?? '');
-      });
+      // Stable alphabetical order so a row does NOT jump around while you're
+      // filling in its time. Use the "No time"/"No stage" filters to find blanks.
+      .sort((a, b) =>
+        (artistById.get(a.artistId)?.name ?? '').localeCompare(artistById.get(b.artistId)?.name ?? ''),
+      );
   }, [dayMain, matched, miss, artistById]);
 
   const doUndo = async () => {

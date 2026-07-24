@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, X } from 'lucide-react';
 import { useApp } from '@/store/appStore';
 import { cx } from '@/components/ui';
-import { applyScheduleEdit, parseTimeInput } from './scheduleEdit';
+import { applyScheduleEdit } from './scheduleEdit';
 import { STAGES } from '@/data/stages';
 import type { Performance } from '@/domain/types';
-import { formatTime } from '@/domain/time';
 
 /** Inline stage + start/end editor for a single performance. Saves immediately. */
 export function PerfRowEditor({
@@ -90,36 +89,34 @@ function TimeField({
   value: string | null;
   onCommit: (v: string | null) => void;
 }) {
-  const [text, setText] = useState(value ? formatTime(value) : '');
-
-  const commit = () => {
-    const trimmed = text.trim();
-    if (!trimmed) {
-      onCommit(null);
-      return;
-    }
-    const parsed = parseTimeInput(trimmed);
-    if (parsed) {
-      onCommit(parsed);
-      setText(formatTime(parsed));
-    } else {
-      // revert to last valid
-      setText(value ? formatTime(value) : '');
-    }
-  };
-
+  // Native time input: iOS shows a proper AM/PM wheel, always stores 24h "HH:mm"
+  // (exactly what we persist), needs no parsing, and never blanks out on you.
+  const hasValue = !!value;
   return (
     <label className="block">
       <span className="mb-0.5 block text-[11px] font-semibold text-muted">{label}</span>
-      <input
-        inputMode="numeric"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-        placeholder="3:05 PM"
-        className="min-h-touch w-full rounded-lg border border-subtle bg-[var(--surface-sunken)] px-2 text-[14px] text-primary outline-none focus:border-warp-blue-400"
-      />
+      <div className="relative">
+        <input
+          type="time"
+          value={value ?? ''}
+          onChange={(e) => onCommit(e.target.value ? e.target.value : null)}
+          aria-label={label}
+          className={cx(
+            'min-h-touch w-full rounded-lg border border-subtle bg-[var(--surface-sunken)] px-2 text-[14px] outline-none focus:border-warp-blue-400',
+            hasValue ? 'text-primary' : 'text-muted',
+          )}
+        />
+        {hasValue && (
+          <button
+            type="button"
+            aria-label={`Clear ${label}`}
+            onClick={() => onCommit(null)}
+            className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-muted active:bg-black/10"
+          >
+            <X size={14} aria-hidden />
+          </button>
+        )}
+      </div>
     </label>
   );
 }
