@@ -142,7 +142,7 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
     <div className="flex h-full flex-col">
       {/* Filter bar */}
       <div className="px-3 pt-2">
-        <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-2">
+        <div className="no-scrollbar scroll-fade-r flex gap-1.5 overflow-x-auto pb-2">
           <button
             type="button"
             onClick={() => setMatterNow((v) => !v)}

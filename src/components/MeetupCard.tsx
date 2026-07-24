@@ -31,15 +31,20 @@ export function MeetupCard({ meetup, highlight }: { meetup: MeetupSuggestion; hi
             <Clock size={16} className="text-warp-pink" aria-hidden />
             {formatMinutes(meetup.startMinute)} – {formatMinutes(meetup.endMinute)}
           </div>
-          <div className="mt-0.5 flex items-center gap-1 text-[14px] text-secondary">
-            <MapPin size={14} aria-hidden />
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-[14px] text-secondary">
+            <MapPin size={14} className="shrink-0" aria-hidden />
             <span className="font-semibold text-primary">{meetup.location.name}</span>
-            <span className="text-muted">· {formatDuration(meetup.durationMinutes)}</span>
+            {/* nowrap so the duration drops to its own line as a unit instead
+                of splitting mid-phrase when the location name is long */}
+            <span className="whitespace-nowrap text-muted">· {formatDuration(meetup.durationMinutes)}</span>
           </div>
         </div>
         <span
-          className="rounded-full px-2 py-0.5 text-[11px] font-bold"
-          style={{ background: `${conf.color}22`, color: conf.color }}
+          className="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
+          style={{
+            background: `color-mix(in srgb, ${conf.color} 14%, transparent)`,
+            color: conf.color,
+          }}
         >
           {conf.label}
         </span>

@@ -67,6 +67,9 @@ export default defineConfig({
       workbox: {
         // Precache the entire built app shell + all static assets (js/css/html/img/fonts).
         globPatterns: ['**/*.{js,css,html,webp,png,svg,woff,woff2,ico,json,webmanifest}'],
+        // iOS fetches launch images itself at Add-to-Home-Screen time; they're
+        // never requested by the app, so keep them out of the offline precache.
+        globIgnores: ['**/art/splash/**'],
         // The festival map is large; make sure it is precached.
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         cleanupOutdatedCaches: true,

@@ -55,7 +55,7 @@ export function GroupScreen({ onGoTab }: { onGoTab: (t: TabId) => void }) {
       </div>
 
       {/* View chips */}
-      <div className="no-scrollbar -mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4">
+      <div className="no-scrollbar scroll-fade-r -mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4">
         {VIEWS.map(({ id, label, Icon }) => (
           <button
             key={id}

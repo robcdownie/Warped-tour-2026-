@@ -77,6 +77,24 @@ const ASSETS = {
     image_size: 'square_hd',
     out: [{ file: 'empty-map.webp', width: 480, quality: 80 }],
   },
+  splash: {
+    // iOS home-screen launch image (apple-touch-startup-image). Portrait
+    // composition — the landscape hero doesn't crop to 9:19.5 without losing
+    // the scene. Rendered at 4 device sizes below.
+    prompt:
+      `${STYLE}, tall vertical concert poster composition of the Long Beach California ` +
+      'waterfront at golden hour: a giant halftone sun low over the ocean in the center, ' +
+      'the Queen Mary ship silhouette on the horizon, tall palm trees framing the left and ' +
+      'right edges, a concert crowd with raised fists silhouetted along the bottom, ' +
+      'seagulls in the open sky above, dramatic vertical depth',
+    image_size: { width: 864, height: 1536 },
+    out: [
+      { file: 'splash/splash-1170x2532.png', cover: [1170, 2532], png: true },
+      { file: 'splash/splash-1179x2556.png', cover: [1179, 2556], png: true },
+      { file: 'splash/splash-1290x2796.png', cover: [1290, 2796], png: true },
+      { file: 'splash/splash-750x1334.png', cover: [750, 1334], png: true },
+    ],
+  },
   'empty-bands': {
     // Derived from the icon emblem rather than generated: every attempt at an
     // "amp + guitar" scene came back with a real Marshall logo (FLUX has it
@@ -122,8 +140,13 @@ async function generate(key, spec) {
 async function postProcess(key, spec, rawPath) {
   for (const o of spec.out) {
     const dest = resolve(OUT, o.file);
-    let img = sharp(rawPath).resize(o.width, null, { withoutEnlargement: true });
-    img = o.png ? img.png() : img.webp({ quality: o.quality ?? 80 });
+    mkdirSync(dirname(dest), { recursive: true });
+    let img = o.cover
+      ? sharp(rawPath).resize(o.cover[0], o.cover[1], { fit: 'cover' })
+      : sharp(rawPath).resize(o.width, null, { withoutEnlargement: true });
+    img = o.png
+      ? img.png({ palette: true, quality: 80, compressionLevel: 9 })
+      : img.webp({ quality: o.quality ?? 80 });
     await img.toFile(dest);
     const kb = (await import('node:fs')).statSync(dest).size / 1024;
     console.log(`[art] wrote ${dest} (${kb.toFixed(0)} KB)`);

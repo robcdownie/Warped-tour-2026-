@@ -87,10 +87,10 @@ export function FriendsScreen() {
           You have <b>{myCount}</b> bands selected. Send them to {othersLabel} by QR or code.
         </p>
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="yellow" onClick={() => setExporting(true)} disabled={!myCount}>
+          <Button variant="yellow" className="whitespace-nowrap text-[14px]" onClick={() => setExporting(true)} disabled={!myCount}>
             <Upload size={16} aria-hidden /> Export mine
           </Button>
-          <Button variant="secondary" onClick={() => setImporting(true)}>
+          <Button variant="secondary" className="whitespace-nowrap text-[14px]" onClick={() => setImporting(true)}>
             <Download size={16} aria-hidden /> Import a friend
           </Button>
         </div>

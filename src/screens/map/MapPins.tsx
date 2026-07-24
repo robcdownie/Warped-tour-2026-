@@ -29,7 +29,7 @@ export function LocationPin({
       <div className="flex flex-col items-center">
         {labeled && isStage && (
           <span
-            className="mb-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold text-white shadow"
+            className="mb-0.5 max-w-[72px] truncate whitespace-nowrap rounded px-1 py-px text-[9px] font-bold text-white shadow"
             style={{ background: color }}
           >
             {loc.shortName ?? loc.name}

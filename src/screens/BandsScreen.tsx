@@ -133,7 +133,7 @@ export function BandsScreen() {
         </div>
 
         {/* Filter chips */}
-        <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        <div className="no-scrollbar scroll-fade-r -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
           <Chip active={day === 'saturday'} onClick={() => setDay(day === 'saturday' ? null : 'saturday')}>
             Sat
           </Chip>
@@ -180,9 +180,11 @@ export function BandsScreen() {
         {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
       </p>
 
-      {/* List + A-Z rail */}
+      {/* List + A-Z rail. min-w-0 is load-bearing: without it the column's
+          intrinsic min-content forces the row wider than the viewport and
+          pushes the A-Z rail off-screen entirely. */}
       <div className="flex gap-1">
-        <div ref={listRef} className="flex-1 space-y-4">
+        <div ref={listRef} className="min-w-0 flex-1 space-y-4">
           {sections.length === 0 && (
             <div className="rounded-2xl border border-dashed border-subtle px-6 py-10 text-center">
               <Filter size={30} className="mx-auto mb-2 text-accent" aria-hidden />

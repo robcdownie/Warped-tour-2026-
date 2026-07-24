@@ -18,8 +18,9 @@ const OUT = join(root, 'shots');
 const BASE = '/Warped-tour-2026-/';
 
 const VIEWPORTS = [
-  { name: 'iphone-390x844', width: 390, height: 844 },
-  { name: 'iphone-se-375x667', width: 375, height: 667 },
+  { name: 'iphone-390x844', width: 390, height: 844, colorScheme: 'light' },
+  { name: 'iphone-390x844-dark', width: 390, height: 844, colorScheme: 'dark' },
+  { name: 'iphone-se-375x667', width: 375, height: 667, colorScheme: 'light' },
 ];
 
 const MIME = {
@@ -69,6 +70,7 @@ async function walk(browser, base, vp) {
     deviceScaleFactor: 3,
     isMobile: true,
     hasTouch: true,
+    colorScheme: vp.colorScheme ?? 'light',
     userAgent:
       'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
   });

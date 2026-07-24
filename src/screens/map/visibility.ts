@@ -27,8 +27,10 @@ export function locationVisible(
   }
 
   if (active.size === 0) {
-    // Default view: stages + named landmarks, no raw amenity pins.
-    return loc.category !== 'amenity';
+    // Default view: just the orientation anchors — stages + entrances.
+    // Everything else (vendors, bars, sponsors, amenities) is opt-in via the
+    // filter chips; showing them all by default buries the map in pins.
+    return loc.category === 'stage' || loc.category === 'entrance';
   }
 
   // Category-based filters.
