@@ -90,15 +90,20 @@ export function NowDashboard({
           </p>
         </div>
         {!nowInfo.day && (
-          <button
-            type="button"
-            onClick={() => onGoTab('schedule')}
-            className="min-h-9 rounded-full bg-accent-soft px-3 text-[12px] font-semibold text-accent"
-          >
-            Preview {dayLabel(day)}
-          </button>
+          <span className="min-h-9 inline-flex items-center rounded-full bg-warp-yellow px-3 text-[12px] font-bold text-warp-ink">
+            Previewing {dayLabel(day)}
+          </span>
         )}
       </div>
+
+      {/* Simulated-time banner — "in 3 hr 5 min" a day before the festival
+          read as real and contradicted the countdown. Same idiom as the
+          Demo Mode banner. */}
+      {!nowInfo.day && (
+        <div className="mb-3 rounded-lg bg-warp-yellow/15 px-3 py-1.5 text-[12px] font-semibold text-warn">
+          Times below simulate {dayLabel(day)} at {formatMinutes(nowMinute)} — the festival hasn&apos;t started.
+        </div>
+      )}
 
       {/* NEXT UP / NOW */}
       {focus ? (
@@ -108,6 +113,7 @@ export function NowDashboard({
           artistName={artistById.get(focus.artistId)?.name ?? 'Artist'}
           stageName={focus.stageId ? locationById.get(focus.stageId)?.name : undefined}
           minutesUntil={hhmmToMinutes(focus.startTime!) - nowMinute}
+          preview={!nowInfo.day}
           travel={
             previous?.stageId && focus.stageId && previous.stageId !== focus.stageId
               ? travelMinutes(locationById.get(previous.stageId), locationById.get(focus.stageId), crowd, omap).minutes
@@ -141,9 +147,10 @@ export function NowDashboard({
             Map
           </button>
         </div>
-        <div className="space-y-2">
-          {users.map((u) => {
-            const pos = plannedPosition(u.id, day, nowMinute, {
+        {(() => {
+          const rows = users.map((u) => ({
+            user: u,
+            pos: plannedPosition(u.id, day, nowMinute, {
               selections: ctx.selections,
               performanceById: ctx.performanceById,
               locationById: ctx.locationById,
@@ -151,19 +158,41 @@ export function NowDashboard({
               crowd: ctx.crowd,
               turnoverBuffer: ctx.turnoverBuffer,
               overrides: ctx.overrides,
-            });
+            }),
+          }));
+          // Three identical "not arrived" rows are noise — collapse them until
+          // statuses actually diverge (the only time this card matters).
+          if (rows.every((r) => r.pos.kind === 'not-arrived')) {
             return (
-              <div key={u.id} className="flex items-center gap-2.5">
-                <FriendAvatar user={u} size={30} ring />
-                <span className="text-[14px] font-semibold text-primary">{u.name}</span>
-                <span className="flex-1 truncate text-[13px] text-secondary">{pos.label}</span>
-                {pos.kind === 'open' && (
-                  <span className="rounded-full bg-warp-ok/15 px-2 py-0.5 text-[11px] font-semibold text-warp-ok">free</span>
-                )}
+              <div className="flex items-center gap-2.5">
+                <span className="flex -space-x-2">
+                  {rows.map((r) => (
+                    <FriendAvatar key={r.user.id} user={r.user} size={26} className="ring-2 ring-[var(--surface-card)]" />
+                  ))}
+                </span>
+                <span className="text-[13px] text-secondary">
+                  Everyone&apos;s pre-show — positions appear once first sets start.
+                </span>
               </div>
             );
-          })}
-        </div>
+          }
+          return (
+            <div className="space-y-2">
+              {rows.map(({ user: u, pos }) => (
+                <div key={u.id} className="flex items-center gap-2.5">
+                  <FriendAvatar user={u} size={30} ring />
+                  <span className="text-[14px] font-semibold text-primary">
+                    {u.id === activeUserId ? 'You' : u.name}
+                  </span>
+                  <span className="flex-1 truncate text-[13px] text-secondary">{pos.label}</span>
+                  {pos.kind === 'open' && (
+                    <span className="rounded-full bg-warp-ok/15 px-2 py-0.5 text-[11px] font-semibold text-warp-ok">free</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
         <p className="mt-2 text-[11px] text-muted">Planned from everyone&apos;s schedule — not live GPS.</p>
       </Card>
 
@@ -217,6 +246,7 @@ function NextUpCard({
   travel,
   friends,
   onOpen,
+  preview,
 }: {
   performance: Performance;
   isNow: boolean;
@@ -226,6 +256,7 @@ function NextUpCard({
   travel?: number;
   friends: { id: string; name: string; initials: string; avatar: string | null; colorKey: string }[];
   onOpen: () => void;
+  preview?: boolean;
 }) {
   return (
     <button type="button" onClick={onOpen} className="mb-4 block w-full text-left">
@@ -246,6 +277,7 @@ function NextUpCard({
               {!isNow && minutesUntil > 0 && (
                 <span className="flex items-center gap-1 font-semibold text-warp-pink">
                   <Clock size={13} aria-hidden /> in {formatDuration(minutesUntil)}
+                  {preview && <span className="font-normal text-muted">(preview)</span>}
                 </span>
               )}
               {travel != null && (

@@ -22,6 +22,7 @@ export function PersonalSchedule({ day }: { day: DayId }) {
   const crowd = useApp((s) => s.settings.crowdDelay);
   const turnoverBuffer = useApp((s) => s.settings.turnoverBuffer);
   const overrides = useApp((s) => s.travelOverrides);
+  const setAttendance = useApp((s) => s.setAttendance);
 
   const ends = useMemo(() => withEffectiveEnds(performances, turnoverBuffer), [performances, turnoverBuffer]);
   const omap = useMemo(() => overrideMap(overrides), [overrides]);
@@ -106,19 +107,43 @@ export function PersonalSchedule({ day }: { day: DayId }) {
                     {stage?.name ?? 'Stage TBA'}
                   </div>
                   <div className="mt-1 flex items-center gap-2">
-                    {skipping ? (
-                      <span className="rounded-full bg-[var(--surface-sunken)] px-2 py-0.5 text-[11px] font-semibold text-muted">
-                        {sel.skippedForConflict ? 'Skipping (conflict)' : 'Skipping'}
+                    {/* Tap cycles going → maybe → skipping. Vocabulary matches
+                        the "maybe" badge used in Group views. */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next =
+                          sel.attendanceDecision === 'attending'
+                            ? 'undecided'
+                            : sel.attendanceDecision === 'undecided'
+                              ? 'skipping'
+                              : 'attending';
+                        void setAttendance(activeUserId, perf.id, next);
+                      }}
+                      aria-label={`Attendance for ${artist?.name}: ${
+                        skipping ? 'skipping' : sel.attendanceDecision === 'attending' ? 'going' : 'maybe'
+                      }. Tap to change.`}
+                      className={cx(
+                        'min-h-touch -my-2 flex items-center rounded-full px-2 text-[11px] font-semibold active:opacity-80',
+                      )}
+                    >
+                      <span
+                        className={cx(
+                          'rounded-full px-2 py-0.5',
+                          skipping
+                            ? 'bg-[var(--surface-sunken)] text-muted'
+                            : sel.attendanceDecision === 'attending'
+                              ? 'bg-warp-ok/15 text-warp-ok'
+                              : 'bg-warp-warn/20 text-warn',
+                        )}
+                      >
+                        {skipping
+                          ? sel.skippedForConflict ? 'Skipping (conflict)' : 'Skipping'
+                          : sel.attendanceDecision === 'attending'
+                            ? 'Going'
+                            : 'Maybe'}
                       </span>
-                    ) : sel.attendanceDecision === 'attending' ? (
-                      <span className="rounded-full bg-warp-ok/15 px-2 py-0.5 text-[11px] font-semibold text-warp-ok">
-                        Attending
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-warp-warn/20 px-2 py-0.5 text-[11px] font-semibold text-warp-warn">
-                        Undecided
-                      </span>
-                    )}
+                    </button>
                     {friends.length > 0 && (
                       <span className="flex -space-x-2">
                         {friends.slice(0, 3).map((f) => (

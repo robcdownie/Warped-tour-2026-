@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Users, MapPin, CalendarClock, Coffee, AlertTriangle, Star, Handshake } from 'lucide-react';
 import { Screen, Card, cx } from '@/components/ui';
 import { EmptyState } from '@/components/EmptyState';
@@ -115,7 +115,10 @@ function AttendeeAvatars({ slot, users }: { slot: GroupSlot; users: User[] }) {
           <span key={a.userId} className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-sunken)] px-1.5 py-0.5">
             <FriendAvatar user={u} size={18} dim={a.decision === 'undecided'} />
             <span className="text-[11px] font-semibold text-primary">{u.name}</span>
-            {a.decision === 'undecided' && <span className="text-[10px] text-warp-warn">?</span>}
+            {/* One word, not a bare "?" — the glyph read as a rendering bug. */}
+            {a.decision === 'undecided' && (
+              <span className="text-[9px] font-bold uppercase text-warp-warn">maybe</span>
+            )}
           </span>
         );
       })}
@@ -157,14 +160,37 @@ function TimelineView({ day }: { day: DayId }) {
 function PersonView({ day }: { day: DayId }) {
   const ctx = useGroupCtx();
   const artistById = useApp((s) => s.artistById);
+  const colRefs = useRef(new Map<string, HTMLDivElement>());
   return (
-    <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
+    <div>
+      {/* Person switcher — without it the third crew member sat fully
+          off-screen with no cue that the columns scroll. */}
+      <div className="mb-2 flex gap-1.5">
+        {ctx.users.map((u) => (
+          <button
+            key={u.id}
+            type="button"
+            onClick={() =>
+              colRefs.current.get(u.id)?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })
+            }
+            className="flex min-h-touch items-center gap-1.5 rounded-full border border-subtle bg-[var(--surface-card)] px-2.5 text-[13px] font-semibold text-secondary active:bg-[var(--press)]"
+          >
+            <FriendAvatar user={u} size={20} />
+            {u.name}
+          </button>
+        ))}
+      </div>
+      <div className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-pl-4 px-4 pb-2">
       {ctx.users.map((u) => {
         const stops = itinerary(ctx.selections, ctx.performanceById, u.id, day).filter(
           (p) => p.type === 'main',
         );
         return (
-          <div key={u.id} className="w-[70%] max-w-[240px] shrink-0">
+          <div
+            key={u.id}
+            ref={(el) => { if (el) colRefs.current.set(u.id, el); }}
+            className="w-[70%] max-w-[240px] shrink-0 snap-start"
+          >
             <div className="mb-2 flex items-center gap-2">
               <FriendAvatar user={u} size={28} ring />
               <span className="font-display text-[14px] text-primary">{u.name}</span>
@@ -191,6 +217,7 @@ function PersonView({ day }: { day: DayId }) {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

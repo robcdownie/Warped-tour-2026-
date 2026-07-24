@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { MapPin, Crosshair, X, Check, Clock, Sparkles, Filter, SlidersHorizontal } from 'lucide-react';
 import { Button, cx } from '@/components/ui';
 import { MapCanvas, type MapCanvasHandle } from './map/MapCanvas';
-import { LocationPin, FriendPin } from './map/MapPins';
+import { LocationPin, FriendPin, FriendClusterPin } from './map/MapPins';
 import { FriendAvatar } from '@/components/FriendAvatar';
 import { useApp } from '@/store/appStore';
 import { useGroupCtx } from '@/hooks/useGroupCtx';
@@ -17,10 +17,6 @@ import type { DayId, MapLocation } from '@/domain/types';
 
 const OPEN = hhmmToMinutes(EVENT.festivalHours.opens);
 const CLOSE = hhmmToMinutes(EVENT.festivalHours.closes);
-
-function clampPct(n: number): number {
-  return Math.max(2, Math.min(98, n));
-}
 
 const FILTER_ORDER: FilterKey[] = [
   'friends', 'stages', 'selected', 'food', 'water', 'restrooms', 'firstaid',
@@ -66,10 +62,9 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
   const locFilters = useMemo(() => new Set([...active].filter((k) => k !== 'friends')), [active]);
   const showFriends = active.has('friends') || matterNow;
 
-  // Friend positions at the chosen time. Co-located friends get a small x offset
-  // so all avatars stay visible instead of stacking on one point.
+  // Friend positions at the chosen time.
   const friendPositions = useMemo(() => {
-    const raw = ctx.users.map((u) => {
+    return ctx.users.map((u) => {
       const pos = positionWithCheckin(u.id, day, atMinute, checkins, now.getTime(), staleMinutes, {
         selections: ctx.selections,
         performanceById: ctx.performanceById,
@@ -83,18 +78,32 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
       const loc = locId ? ctx.locationById.get(locId) : undefined;
       return { user: u, pos, loc };
     });
-    const seen = new Map<string, number>();
-    return raw.map((r) => {
-      if (!r.loc) return r;
-      const n = seen.get(r.loc.id) ?? 0;
-      seen.set(r.loc.id, n + 1);
-      if (n === 0) return r;
-      // Fan out extra avatars horizontally around the anchor.
-      const dir = n % 2 === 1 ? 1 : -1;
-      const mag = Math.ceil(n / 2) * 3.2;
-      return { ...r, loc: { ...r.loc, xPercent: clampPct(r.loc.xPercent + dir * mag) } };
-    });
   }, [ctx, day, atMinute, checkins, now, staleMinutes]);
+
+  // Co-located friends collapse into one cluster chip — the old x-offset
+  // fan-out still half-hid avatars at default zoom, and a hidden pin reads
+  // as a lost friend.
+  const friendGroups = useMemo(() => {
+    const byLoc = new Map<string, typeof friendPositions>();
+    for (const fp of friendPositions) {
+      if (!fp.loc) continue;
+      const arr = byLoc.get(fp.loc.id) ?? [];
+      arr.push(fp);
+      byLoc.set(fp.loc.id, arr);
+    }
+    return [...byLoc.values()];
+  }, [friendPositions]);
+
+  // Alternate stage labels above/below by x-order so near neighbors don't
+  // merge into false compound names ("BeatBox Ghost").
+  const stageLabelBelow = useMemo(() => {
+    const stages = locations
+      .filter((l) => l.category === 'stage')
+      .sort((a, b) => a.xPercent - b.xPercent);
+    const below = new Set<string>();
+    stages.forEach((s, i) => { if (i % 2 === 1) below.add(s.id); });
+    return below;
+  }, [locations]);
 
   // "Matter now" essential amenity types.
   const matterAmenity = new Set(['Water Stations', 'Restrooms', 'First Aid']);
@@ -190,15 +199,30 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
               key={loc.id}
               loc={loc}
               labeled={loc.category === 'stage'}
+              labelBelow={stageLabelBelow.has(loc.id)}
               highlighted={loc.category === 'stage' && selectedStages.has(loc.id) && (active.has('selected') || matterNow)}
               onClick={() => onLocationTap(loc)}
             />
           ))}
           {showFriends &&
-            friendPositions.map(({ user, pos, loc }) =>
-              loc ? (
-                <FriendPin key={user.id} user={user} position={pos} loc={loc} onClick={() => setSelected(loc)} />
-              ) : null,
+            friendGroups.map((group) =>
+              group.length === 1 ? (
+                <FriendPin
+                  key={group[0].user.id}
+                  user={group[0].user}
+                  position={group[0].pos}
+                  loc={group[0].loc}
+                  onClick={() => setSelected(group[0].loc!)}
+                />
+              ) : (
+                <FriendClusterPin
+                  key={`cluster-${group[0].loc!.id}`}
+                  users={group.map((g) => g.user)}
+                  loc={group[0].loc!}
+                  anyStale={group.some((g) => g.pos.source === 'stale')}
+                  onClick={() => setSelected(group[0].loc!)}
+                />
+              ),
             )}
         </MapCanvas>
 

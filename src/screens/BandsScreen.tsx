@@ -1,5 +1,5 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Search, X, MapPin, Clock, Check, Music, Unplug, Filter } from 'lucide-react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Search, X, MapPin, Clock, Check, Music, Unplug, Filter, Star } from 'lucide-react';
 import { Screen, cx } from '@/components/ui';
 import { FriendAvatar } from '@/components/FriendAvatar';
 import { PriorityBadge } from '@/components/PriorityControl';
@@ -20,6 +20,7 @@ export function BandsScreen() {
   const selections = useApp((s) => s.selections);
   const users = useApp((s) => s.users);
   const activeUserId = useApp((s) => s.settings.activeUserId);
+  const toggleSelection = useApp((s) => s.toggleSelection);
 
   const [query, setQuery] = useState('');
   const [day, setDay] = useState<DayId | null>(null);
@@ -43,6 +44,35 @@ export function BandsScreen() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Collapse the title row while scrolling — the full sticky stack ate almost
+  // half an iPhone SE screen, leaving ~2.5 of 183 cards visible at a time.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    const main = headerRef.current?.closest('main');
+    if (!main) return;
+    const onScroll = () => setCollapsed(main.scrollTop > 56);
+    main.addEventListener('scroll', onScroll, { passive: true });
+    return () => main.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Drag-to-scrub on the A-Z rail (precision taps are hard mid-crowd).
+  const railRef = useRef<HTMLDivElement>(null);
+  const lastScrubbed = useRef<string | null>(null);
+  const scrub = (clientY: number) => {
+    const rail = railRef.current;
+    if (!rail || !sections.length) return;
+    const rect = rail.getBoundingClientRect();
+    const idx = Math.min(
+      sections.length - 1,
+      Math.max(0, Math.floor(((clientY - rect.top) / rect.height) * sections.length)),
+    );
+    const letter = sections[idx]?.[0];
+    if (letter && letter !== lastScrubbed.current) {
+      lastScrubbed.current = letter;
+      jumpTo(letter, true);
+    }
+  };
 
   const activeSelById = useMemo(() => {
     const m = new Map<string, (typeof selections)[number]>();
@@ -111,15 +141,21 @@ export function BandsScreen() {
     setPriority(null);
   };
 
-  const jumpTo = (letter: string) => {
+  const jumpTo = (letter: string, instant = false) => {
     const el = listRef.current?.querySelector(`[data-letter="${letter}"]`);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el?.scrollIntoView({ behavior: instant ? 'auto' : 'smooth', block: 'start' });
   };
 
   return (
     <Screen>
       <div ref={headerRef} className="sticky top-0 z-10 -mx-4 border-b border-subtle bg-[var(--surface-app)] px-4 pb-2 pt-3">
-        <div className="mb-2 flex items-center justify-between">
+        <div
+          className={cx(
+            'flex items-center justify-between overflow-hidden transition-all duration-200',
+            collapsed ? 'mb-0 max-h-0 opacity-0' : 'mb-2 max-h-10 opacity-100',
+          )}
+          aria-hidden={collapsed || undefined}
+        >
           <h1 className="font-display text-[22px] text-primary">My Bands</h1>
           <span className="rounded-full bg-warp-pink/15 px-2.5 py-1 text-[13px] font-bold text-warp-pink">
             {selectedCount} selected
@@ -232,6 +268,7 @@ export function BandsScreen() {
                       .map((s) => users.find((u) => u.id === s.userId))
                       .filter((u): u is NonNullable<typeof u> => !!u)}
                     onOpen={() => setOpenPerf(p)}
+                    onToggle={() => void toggleSelection(activeUserId, p.id)}
                   />
                 ))}
               </div>
@@ -241,10 +278,19 @@ export function BandsScreen() {
 
         {sections.length > 3 && (
           <div
-            className="sticky top-[calc(var(--bands-header-h)+4px)] flex h-min flex-col items-center justify-between py-1"
+            ref={railRef}
+            className="sticky top-[calc(var(--bands-header-h)+4px)] flex h-min touch-none flex-col items-center justify-between py-1"
             /* Cap to the visible area so the rail never runs under the bottom
                nav — every letter stays reachable even on an iPhone SE. */
             style={{ maxHeight: 'calc(100dvh - var(--bands-header-h) - 170px)' }}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              scrub(e.clientY);
+            }}
+            onPointerMove={(e) => {
+              if (e.buttons) scrub(e.clientY);
+            }}
+            onPointerUp={() => { lastScrubbed.current = null; }}
           >
             {sections.map(([letter]) => (
               <button
@@ -312,6 +358,7 @@ function BandCard({
   selection,
   friends,
   onOpen,
+  onToggle,
 }: {
   perf: Performance;
   name: string;
@@ -319,20 +366,27 @@ function BandCard({
   selection?: { selected: boolean; priority: Priority };
   friends: { id: string; name: string; initials: string; avatar: string | null; colorKey: string }[];
   onOpen: () => void;
+  onToggle: () => void;
 }) {
   const selected = !!selection?.selected;
   const isUnplugged = perf.type === 'unplugged';
   const hasSchedule = perf.startTime && perf.stageId;
 
+  // Wrapper is a div so the card can hold TWO controls: the main area opens
+  // the detail sheet, the star toggles selection in one tap (the core loop —
+  // requiring the sheet for every pick made 183 cards a chore).
   return (
-    <button
-      type="button"
-      onClick={onOpen}
+    <div
       className={cx(
-        'surface-card flex w-full items-center gap-3 rounded-2xl p-3 text-left transition active:opacity-90',
+        'surface-card flex w-full items-center gap-3 rounded-2xl p-3 transition',
         selected && 'ring-2 ring-warp-pink',
       )}
     >
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left active:opacity-90"
+      >
       {/* selection indicator */}
       <span
         className={cx(
@@ -381,6 +435,21 @@ function BandCard({
           ))}
         </span>
       )}
-    </button>
+      </button>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-pressed={selected}
+        aria-label={selected ? `Remove ${name} from my bands` : `Add ${name} to my bands`}
+        className="min-h-touch min-w-touch -my-1 -mr-1.5 flex shrink-0 items-center justify-center rounded-full active:bg-[var(--press)]"
+      >
+        <Star
+          size={22}
+          className={selected ? 'text-warp-pink' : 'text-muted'}
+          fill={selected ? 'currentColor' : 'none'}
+          aria-hidden
+        />
+      </button>
+    </div>
   );
 }

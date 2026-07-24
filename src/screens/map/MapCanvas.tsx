@@ -96,8 +96,9 @@ export const MapCanvas = forwardRef<
         </TransformComponent>
       </TransformWrapper>
 
-      {/* Controls */}
-      <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
+      {/* Controls — top-right, clear of the legend baked into the artwork's
+          bottom-right corner (water/first-aid entries must stay readable). */}
+      <div className="absolute right-3 top-3 flex flex-col gap-1.5">
         <MapBtn label="Zoom in" onClick={() => apiRef.current?.zoomIn(0.4)}>
           <Plus size={18} aria-hidden />
         </MapBtn>
