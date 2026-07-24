@@ -3,6 +3,7 @@ import type { MenuRoute } from '@/components/MenuDrawer';
 import type { TabId } from '@/store/appStore';
 import { OfflineTestScreen } from './OfflineTestScreen';
 import { AboutScreen } from './AboutScreen';
+import { ScheduleIoScreen } from './ScheduleIoScreen';
 import { PlaceholderMenu } from './PlaceholderMenu';
 
 const TITLES: Record<MenuRoute, string> = {
@@ -55,6 +56,8 @@ function RouteBody({ route, onGoTab }: { route: MenuRoute; onGoTab: (t: TabId) =
       return <OfflineTestScreen />;
     case 'about':
       return <AboutScreen />;
+    case 'schedule-io':
+      return <ScheduleIoScreen />;
     default:
       return <PlaceholderMenu route={route} onGoTab={onGoTab} />;
   }

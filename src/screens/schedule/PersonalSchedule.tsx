@@ -1,0 +1,136 @@
+import { useMemo } from 'react';
+import { MapPin, Footprints, CalendarX } from 'lucide-react';
+import { useApp } from '@/store/appStore';
+import { Card, cx } from '@/components/ui';
+import { EmptyState } from '@/components/EmptyState';
+import { FriendAvatar } from '@/components/FriendAvatar';
+import { PriorityBadge } from '@/components/PriorityControl';
+import { withEffectiveEnds } from '@/domain/endTimes';
+import { travelMinutes, overrideMap } from '@/domain/travel';
+import { formatTime, formatDuration, dayLabel } from '@/domain/time';
+import type { DayId, Performance } from '@/domain/types';
+
+export function PersonalSchedule({ day }: { day: DayId }) {
+  const activeUserId = useApp((s) => s.settings.activeUserId);
+  const selections = useApp((s) => s.selections);
+  const performanceById = useApp((s) => s.performanceById);
+  const performances = useApp((s) => s.performances);
+  const artistById = useApp((s) => s.artistById);
+  const locationById = useApp((s) => s.locationById);
+  const users = useApp((s) => s.users);
+  const crowd = useApp((s) => s.settings.crowdDelay);
+  const turnoverBuffer = useApp((s) => s.settings.turnoverBuffer);
+  const overrides = useApp((s) => s.travelOverrides);
+
+  const ends = useMemo(() => withEffectiveEnds(performances, turnoverBuffer), [performances, turnoverBuffer]);
+  const omap = useMemo(() => overrideMap(overrides), [overrides]);
+
+  const items = useMemo(() => {
+    const rows = selections
+      .filter((s) => {
+        if (s.userId !== activeUserId || !s.selected) return false;
+        const p = performanceById.get(s.performanceId);
+        return p?.day === day && p.type === 'main' && p.startTime;
+      })
+      .map((s) => ({ sel: s, perf: performanceById.get(s.performanceId)! }))
+      .sort((a, b) => (a.perf.startTime! < b.perf.startTime! ? -1 : 1));
+    return rows;
+  }, [selections, activeUserId, performanceById, day]);
+
+  if (!items.length) {
+    return (
+      <EmptyState
+        Icon={CalendarX}
+        title={`No scheduled ${dayLabel(day)} sets`}
+        message="Pick bands and add their set times, then your day appears here in order."
+      />
+    );
+  }
+
+  let prev: Performance | undefined;
+
+  return (
+    <div className="space-y-2">
+      {items.map(({ sel, perf }) => {
+        const artist = artistById.get(perf.artistId);
+        const stage = perf.stageId ? locationById.get(perf.stageId) : undefined;
+        const end = ends.get(perf.id);
+        const friends = selections
+          .filter((s) => s.performanceId === perf.id && s.selected && s.userId !== activeUserId)
+          .map((s) => users.find((u) => u.id === s.userId))
+          .filter((u): u is NonNullable<typeof u> => !!u);
+
+        // Travel from previous set.
+        let travel: { minutes: number; from: string } | null = null;
+        if (prev?.stageId && perf.stageId && prev.stageId !== perf.stageId) {
+          const t = travelMinutes(
+            locationById.get(prev.stageId),
+            locationById.get(perf.stageId),
+            crowd,
+            omap,
+          );
+          travel = { minutes: t.minutes, from: locationById.get(prev.stageId)?.shortName ?? '' };
+        }
+        const skipping = sel.attendanceDecision === 'skipping';
+        prev = perf;
+
+        return (
+          <div key={perf.id}>
+            {travel && (
+              <div className="flex items-center gap-1.5 py-1 pl-3 text-[12px] text-muted">
+                <Footprints size={13} aria-hidden />
+                ~{formatDuration(travel.minutes)} walk from {travel.from}
+                <span className="text-[10px]">(approx)</span>
+              </div>
+            )}
+            <Card className={cx('p-3', skipping && 'opacity-55')}>
+              <div className="flex items-start gap-3">
+                <div className="w-16 shrink-0 text-center">
+                  <div className="font-display text-[15px] leading-tight text-primary">
+                    {formatTime(perf.startTime)}
+                  </div>
+                  <div className="text-[11px] text-muted">
+                    {end?.kind === 'unknown' ? '· · ·' : formatTime(end?.hhmm ?? null)}
+                    {end?.kind === 'estimated' && <span className="block text-[9px]">est.</span>}
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-display text-[15px] text-primary">{artist?.name}</span>
+                    <PriorityBadge priority={sel.priority} />
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-1 text-[13px] text-secondary">
+                    <MapPin size={13} aria-hidden />
+                    {stage?.name ?? 'Stage TBA'}
+                  </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    {skipping ? (
+                      <span className="rounded-full bg-[var(--surface-sunken)] px-2 py-0.5 text-[11px] font-semibold text-muted">
+                        {sel.skippedForConflict ? 'Skipping (conflict)' : 'Skipping'}
+                      </span>
+                    ) : sel.attendanceDecision === 'attending' ? (
+                      <span className="rounded-full bg-warp-ok/15 px-2 py-0.5 text-[11px] font-semibold text-warp-ok">
+                        Attending
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-warp-warn/20 px-2 py-0.5 text-[11px] font-semibold text-warp-warn">
+                        Undecided
+                      </span>
+                    )}
+                    {friends.length > 0 && (
+                      <span className="flex -space-x-2">
+                        {friends.slice(0, 3).map((f) => (
+                          <FriendAvatar key={f.id} user={f} size={20} className="ring-2 ring-[var(--surface-card)]" />
+                        ))}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

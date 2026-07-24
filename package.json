@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "shots": "npm run build && node scripts/shots.mjs",
+    "verify": "npm run build && node scripts/verify-e2e.mjs",
     "assets:map": "node scripts/crop-map.mjs",
     "assets:icons": "node scripts/gen-icons.mjs",
     "assets": "npm run assets:map && npm run assets:icons"

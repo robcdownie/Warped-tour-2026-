@@ -18,6 +18,7 @@ import type {
   AttendanceDecision,
 } from '@/domain/types';
 import { selectionKey } from '@/db/schema';
+import { commitImport, rollbackImport } from '@/domain/share/importCommit';
 
 export type TabId = 'now' | 'bands' | 'schedule' | 'group' | 'map';
 
@@ -86,6 +87,10 @@ interface AppState {
   // users
   putUser: (u: User) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
+
+  // sharing
+  applyImport: (env: import('@/domain/share/codec').Envelope) => Promise<{ backupId: number; summary: string }>;
+  rollbackImport: (backupId: number) => Promise<boolean>;
 }
 
 function buildLookups(state: {
@@ -345,6 +350,20 @@ export const useApp = create<AppState>((set, get) => ({
     await repo.deleteUser(id);
     await repo.deleteSelectionsForUser(id);
     await get().reloadAll();
+  },
+
+  applyImport: async (env) => {
+    const repo = repoFor(get().mode);
+    const res = await commitImport(repo, env);
+    await get().reloadAll();
+    return res;
+  },
+
+  rollbackImport: async (backupId) => {
+    const repo = repoFor(get().mode);
+    const ok = await rollbackImport(repo, backupId);
+    await get().reloadAll();
+    return ok;
   },
 }));
 
