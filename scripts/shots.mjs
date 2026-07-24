@@ -241,11 +241,29 @@ async function walk(browser, base, vp) {
     // Toggle stages filter to show stage pins clearly
     if (await tap('button:has-text("Stages")')) { await page.waitForTimeout(400); await shoot('map-stages'); }
 
+    // Group meetups
+    screen = 'group-meetups';
+    await tap('nav[aria-label="Primary"] button[aria-label="Group"]');
+    await page.waitForTimeout(300);
+    if (await tap('button:has-text("Meetups")')) { await page.waitForTimeout(400); await shoot('group-meetups', { full: true }); }
+
     // Now dashboard (schedule now loaded)
     screen = 'now-dashboard';
     await tap('nav[aria-label="Primary"] button[aria-label="Now"]');
     await page.waitForTimeout(400);
     await shoot('now-dashboard', { full: true });
+
+    // Travel settings
+    screen = 'travel';
+    await tap('header button[aria-label="Open menu"]');
+    await page.waitForTimeout(300);
+    if (await tap('button:has-text("Travel & Crowd")')) { await page.waitForTimeout(400); await shoot('travel', { full: true }); await tap('button[aria-label="Back"]', 2000); }
+
+    // Emergency schedule
+    screen = 'emergency';
+    await tap('header button[aria-label="Open menu"]');
+    await page.waitForTimeout(300);
+    if (await tap('button:has-text("Emergency Schedule")')) { await page.waitForTimeout(400); await shoot('emergency', { full: true }); await tap('button[aria-label="Back"]', 2000); }
   }
 
   await context.close();

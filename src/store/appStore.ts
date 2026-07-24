@@ -83,6 +83,7 @@ interface AppState {
 
   // travel overrides
   putTravelOverride: (o: TravelOverride) => Promise<void>;
+  clearTravelOverrides: () => Promise<void>;
 
   // users
   putUser: (u: User) => Promise<void>;
@@ -336,6 +337,12 @@ export const useApp = create<AppState>((set, get) => ({
   putTravelOverride: async (o) => {
     const repo = repoFor(get().mode);
     await repo.putTravelOverride(o);
+    await get().reloadAll();
+  },
+
+  clearTravelOverrides: async () => {
+    const repo = repoFor(get().mode);
+    await repo.clearTravelOverrides();
     await get().reloadAll();
   },
 

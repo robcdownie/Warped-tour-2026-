@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Users, MapPin, CalendarClock, Coffee, AlertTriangle, Star } from 'lucide-react';
+import { Users, MapPin, CalendarClock, Coffee, AlertTriangle, Star, Handshake } from 'lucide-react';
 import { Screen, Card, cx } from '@/components/ui';
 import { EmptyState } from '@/components/EmptyState';
 import { FriendAvatar } from '@/components/FriendAvatar';
@@ -7,6 +7,8 @@ import { useApp } from '@/store/appStore';
 import { useGroupCtx } from '@/hooks/useGroupCtx';
 import { useConflicts } from '@/hooks/useConflicts';
 import { groupTimeline, sharedSets, freeWindows, type GroupSlot } from '@/domain/group';
+import { MeetupCard } from '@/components/MeetupCard';
+import { useMeetups } from '@/hooks/useMeetups';
 import { itinerary } from '@/store/selectors';
 import { isScheduleLoaded } from '@/store/selectors';
 import { formatMinutes, formatTime, formatDuration, hhmmToMinutes } from '@/domain/time';
@@ -14,12 +16,13 @@ import { EVENT } from '@/config/event';
 import type { DayId, User } from '@/domain/types';
 import type { TabId } from '@/store/appStore';
 
-type ViewMode = 'timeline' | 'person' | 'shared' | 'conflicts' | 'free';
+type ViewMode = 'timeline' | 'person' | 'shared' | 'meetups' | 'conflicts' | 'free';
 
 const VIEWS: { id: ViewMode; label: string; Icon: typeof Users }[] = [
   { id: 'timeline', label: 'Timeline', Icon: CalendarClock },
   { id: 'person', label: 'By Person', Icon: Users },
   { id: 'shared', label: 'Shared', Icon: Star },
+  { id: 'meetups', label: 'Meetups', Icon: Handshake },
   { id: 'conflicts', label: 'Conflicts', Icon: AlertTriangle },
   { id: 'free', label: 'Free Time', Icon: Coffee },
 ];
@@ -89,6 +92,7 @@ export function GroupScreen({ onGoTab }: { onGoTab: (t: TabId) => void }) {
           {view === 'timeline' && <TimelineView day={day} />}
           {view === 'person' && <PersonView day={day} />}
           {view === 'shared' && <SharedView day={day} />}
+          {view === 'meetups' && <MeetupsView day={day} />}
           {view === 'conflicts' && <ConflictsView day={day} />}
           {view === 'free' && <FreeView day={day} />}
         </>
@@ -212,6 +216,25 @@ function SharedView({ day }: { day: DayId }) {
             <AttendeeAvatars slot={slot} users={ctx.users} />
           </div>
         </Card>
+      ))}
+    </div>
+  );
+}
+
+function MeetupsView({ day }: { day: DayId }) {
+  const meetups = useMeetups(day);
+  if (!meetups.length)
+    return (
+      <EmptyState
+        Icon={Handshake}
+        title="No meetups found yet"
+        message="Once a couple of you have set times entered, the app finds windows where you're all free and picks an easy spot."
+      />
+    );
+  return (
+    <div className="space-y-2">
+      {meetups.map((m, i) => (
+        <MeetupCard key={m.id} meetup={m} highlight={i === 0} />
       ))}
     </div>
   );
