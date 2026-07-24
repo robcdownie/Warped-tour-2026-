@@ -19,7 +19,13 @@ export function LocationPin({
   const color = loc.category === 'amenity' ? amenityColor(loc.amenityType) : CATEGORY_STYLE[loc.category].color;
   const isStage = loc.category === 'stage';
   return (
-    <MapMarker xPercent={loc.xPercent} yPercent={loc.yPercent} onClick={onClick} z={isStage ? 3 : 2}>
+    <MapMarker
+      xPercent={loc.xPercent}
+      yPercent={loc.yPercent}
+      onClick={onClick}
+      ariaLabel={`${loc.name}${loc.amenityType ? ` (${loc.amenityType})` : ''}`}
+      z={isStage ? 3 : 2}
+    >
       <div className="flex flex-col items-center">
         {labeled && isStage && (
           <span
@@ -61,7 +67,14 @@ export function FriendPin({
   const traveling = position.kind === 'traveling';
   const stale = position.source === 'stale';
   return (
-    <MapMarker xPercent={loc.xPercent} yPercent={loc.yPercent} onClick={onClick} anchor="bottom" z={5}>
+    <MapMarker
+      xPercent={loc.xPercent}
+      yPercent={loc.yPercent}
+      onClick={onClick}
+      ariaLabel={`${user.name}: ${position.label} (planned)`}
+      anchor="bottom"
+      z={5}
+    >
       <div className="flex flex-col items-center" style={{ opacity: stale ? 0.6 : 1 }}>
         <div className="relative">
           <FriendAvatar user={user} size={30} ring />

@@ -62,7 +62,7 @@ export function App() {
 
       <main className="flex-1 overflow-y-auto">
         {menuRoute ? (
-          <MenuScreen route={menuRoute} onBack={() => setMenuRoute(null)} onGoTab={goTab} />
+          <MenuScreen route={menuRoute} onBack={() => setMenuRoute(null)} onNavigate={setMenuRoute} />
         ) : (
           <>
             {activeTab === 'now' && <NowScreen onOpenMenu={openMenuRoute} onGoTab={goTab} />}

@@ -1,6 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
 import type { MenuRoute } from '@/components/MenuDrawer';
-import type { TabId } from '@/store/appStore';
 import { OfflineTestScreen } from './OfflineTestScreen';
 import { AboutScreen } from './AboutScreen';
 import { ScheduleIoScreen } from './ScheduleIoScreen';
@@ -8,7 +7,9 @@ import { FriendsScreen } from './FriendsScreen';
 import { CalibrationScreen } from './CalibrationScreen';
 import { TravelScreen } from './TravelScreen';
 import { EmergencyScreen } from './EmergencyScreen';
-import { PlaceholderMenu } from './PlaceholderMenu';
+import { SettingsScreen } from './SettingsScreen';
+import { DataScreen } from './DataScreen';
+import { DemoScreen } from './DemoScreen';
 
 const TITLES: Record<MenuRoute, string> = {
   settings: 'Settings',
@@ -27,11 +28,11 @@ const TITLES: Record<MenuRoute, string> = {
 export function MenuScreen({
   route,
   onBack,
-  onGoTab,
+  onNavigate,
 }: {
   route: MenuRoute;
   onBack: () => void;
-  onGoTab: (t: TabId) => void;
+  onNavigate: (r: MenuRoute) => void;
 }) {
   return (
     <div>
@@ -49,12 +50,12 @@ export function MenuScreen({
         </button>
         <h1 className="font-display text-[17px] text-primary">{TITLES[route]}</h1>
       </div>
-      <RouteBody route={route} onGoTab={onGoTab} />
+      <RouteBody route={route} onNavigate={onNavigate} />
     </div>
   );
 }
 
-function RouteBody({ route, onGoTab }: { route: MenuRoute; onGoTab: (t: TabId) => void }) {
+function RouteBody({ route, onNavigate }: { route: MenuRoute; onNavigate: (r: MenuRoute) => void }) {
   switch (route) {
     case 'offline-test':
       return <OfflineTestScreen />;
@@ -70,7 +71,13 @@ function RouteBody({ route, onGoTab }: { route: MenuRoute; onGoTab: (t: TabId) =
       return <TravelScreen />;
     case 'emergency':
       return <EmergencyScreen />;
-    default:
-      return <PlaceholderMenu route={route} onGoTab={onGoTab} />;
+    case 'settings':
+      return <SettingsScreen onOpenMenu={onNavigate} />;
+    case 'data':
+      return <DataScreen />;
+    case 'demo':
+      return <DemoScreen />;
+    case 'share':
+      return <FriendsScreen />;
   }
 }

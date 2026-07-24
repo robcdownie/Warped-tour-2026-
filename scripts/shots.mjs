@@ -264,6 +264,24 @@ async function walk(browser, base, vp) {
     await tap('header button[aria-label="Open menu"]');
     await page.waitForTimeout(300);
     if (await tap('button:has-text("Emergency Schedule")')) { await page.waitForTimeout(400); await shoot('emergency', { full: true }); await tap('button[aria-label="Back"]', 2000); }
+
+    // Settings
+    screen = 'settings';
+    await tap('header button[aria-label="Open menu"]');
+    await page.waitForTimeout(300);
+    if (await tap('button:has-text("Settings")')) { await page.waitForTimeout(400); await shoot('settings', { full: true }); await tap('button[aria-label="Back"]', 2000); }
+
+    // Data / backup
+    screen = 'data';
+    await tap('header button[aria-label="Open menu"]');
+    await page.waitForTimeout(300);
+    if (await tap('button:has-text("Backup & Data")')) { await page.waitForTimeout(400); await shoot('data', { full: true }); await tap('button[aria-label="Back"]', 2000); }
+
+    // Demo mode
+    screen = 'demo';
+    await tap('header button[aria-label="Open menu"]');
+    await page.waitForTimeout(300);
+    if (await tap('button:has-text("Demo Mode")')) { await page.waitForTimeout(400); await shoot('demo', { full: true }); await tap('button[aria-label="Back"]', 2000); }
   }
 
   await context.close();

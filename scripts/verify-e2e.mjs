@@ -134,8 +134,80 @@ async function main() {
   });
   check('data survives reload', afterReload);
 
-  // Clean up test data so it doesn't pollute.
-  await page.evaluate(async () => { await window.__WLB__.resetSchedule(); });
+  // 5. Manual check-in persists.
+  await page.evaluate(async () => {
+    await window.__WLB__.state().putCheckIn({
+      id: 'e2e-checkin', userId: 'robbie', locationId: 'ghost-stage',
+      customCoordinates: null, source: 'manual', updatedAt: new Date().toISOString(),
+    });
+  });
+
+  // 6. OFFLINE acceptance: ensure SW controls, then go offline and reload.
+  const controlled = await page.evaluate(async () => {
+    if (!('serviceWorker' in navigator)) return false;
+    await navigator.serviceWorker.ready.catch(() => {});
+    return !!navigator.serviceWorker.controller;
+  });
+  check('service worker controls the page', controlled);
+
+  await ctx.setOffline(true);
+  await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+  const offlineOk = await page
+    .waitForSelector('nav[aria-label="Primary"]', { timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  check('app reopens fully OFFLINE (airplane mode)', offlineOk);
+
+  if (offlineOk) {
+    // Navigate every tab offline.
+    const tabs = ['Bands', 'Schedule', 'Group', 'Map', 'Now'];
+    let allTabs = true;
+    for (const t of tabs) {
+      const ok = await page.click(`nav[aria-label="Primary"] button[aria-label="${t}"]`).then(() => true).catch(() => false);
+      await page.waitForTimeout(200);
+      if (!ok) allTabs = false;
+    }
+    check('all 5 tabs navigate offline', allTabs);
+
+    const offlineData = await page.evaluate(() => {
+      const W = window.__WLB__;
+      return {
+        schedule: W.state().performances.some((p) => p.startTime && p.stageId),
+        checkin: W.state().checkins.some((c) => c.id === 'e2e-checkin'),
+      };
+    });
+    check('schedule data present offline', offlineData.schedule);
+    check('check-in persists offline', offlineData.checkin);
+  }
+  await ctx.setOffline(false);
+
+  // 7. Demo mode is separate from production.
+  const demoSep = await page.evaluate(async () => {
+    const W = window.__WLB__;
+    await W.state().enterDemo();
+    const demoHasTimes = W.state().performances.some((p) => p.startTime);
+    await W.state().exitDemo();
+    const prodStillClean = W.state().performances.filter((p) => p.type === 'main' && p.startTime && p.stageId).length;
+    return { demoHasTimes, prodStillClean };
+  });
+  check('demo mode has fictional times', demoSep.demoHasTimes);
+  // prod still has our 2 e2e-set performances but demo didn't add to prod
+  check('demo data separate from production', demoSep.prodStillClean <= 2, `prodScheduled=${demoSep.prodStillClean}`);
+
+  // 8. Error handling: invalid + wrong-version codes.
+  const errs = await page.evaluate(() => {
+    const W = window.__WLB__;
+    const out = {};
+    try { W.decode('not a real code'); out.invalid = 'no-throw'; } catch (e) { out.invalid = e.code; }
+    return out;
+  });
+  check('invalid code rejected with friendly error (acceptance §42)', errs.invalid === 'format', `code=${errs.invalid}`);
+
+  // Clean up test data.
+  await page.evaluate(async () => {
+    await window.__WLB__.resetSchedule();
+    await window.__WLB__.state().deleteCheckIn('e2e-checkin');
+  });
 
   await browser.close();
   srv.close();

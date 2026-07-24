@@ -1,0 +1,30 @@
+# Installing on iPhone
+
+The app installs to your Home Screen and then runs fully offline. Do this **once at home on Wi-Fi**, before the festival.
+
+## Steps
+
+1. Open **Safari** on your iPhone (must be Safari — Chrome/Instagram/in-app browsers can't install a PWA on iOS).
+2. Go to: **https://robcdownie.github.io/Warped-tour-2026-/**
+3. Wait a few seconds. The header should show **“Ready for offline use.”** If it doesn't, open the **menu (≡) → Offline Test** and make sure every essential row is green.
+4. Tap the **Share** button (the square with an up-arrow).
+5. Scroll down and tap **Add to Home Screen**, then **Add**.
+6. Close Safari. Open the app from the new **Warped LB** Home Screen icon.
+7. While you still have signal, tap around once (open the Map so the image caches). Now it's fully cached.
+
+## Confirm it works offline
+
+1. Turn on **Airplane Mode**.
+2. **Force-close** the app (swipe up and flick it away).
+3. Reopen it from the Home Screen. It should load normally.
+4. Open the menu → **Offline Test** → everything essential is green.
+
+If step 3 fails, you likely installed before caching finished — delete the Home Screen icon, redo the steps with a solid Wi-Fi connection, and give it a few extra seconds on step 3.
+
+## Each friend installs their own
+
+Robbie, Ari, and Morgan each install on their own phone and pick “This device is …” under **Menu → Friends & Sharing**. You share picks between phones with QR codes — see [data import/export](data-import-export.md).
+
+## Updating
+
+When you're on Wi-Fi and a new version has shipped, the app shows a small “A new version is ready” prompt. Tap **Update**. It never updates itself mid-festival.

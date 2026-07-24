@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import type { AppMode } from '@/db/db';
 import { repoFor } from '@/db/repo';
-import { requestPersistentStorage } from '@/db/db';
+import { requestPersistentStorage, deleteDemoDb } from '@/db/db';
 import { seedDatabase, SEED_VERSION } from '@/data/seed';
+import { seedDemoSchedule, seedDemoSelections } from '@/data/demoSchedule';
 import { DEFAULT_SETTINGS } from '@/domain/settings';
 import { SEED_USERS } from '@/data/users';
 import type {
@@ -92,6 +93,16 @@ interface AppState {
   // sharing
   applyImport: (env: import('@/domain/share/codec').Envelope) => Promise<{ backupId: number; summary: string }>;
   rollbackImport: (backupId: number) => Promise<boolean>;
+
+  // resets / recovery
+  resetSchedule: () => Promise<void>;
+  resetMap: () => Promise<void>;
+  resetAllLocalData: () => Promise<void>;
+  resetDemoData: () => Promise<void>;
+
+  // demo mode
+  enterDemo: () => Promise<void>;
+  exitDemo: () => Promise<void>;
 }
 
 function buildLookups(state: {
@@ -371,6 +382,65 @@ export const useApp = create<AppState>((set, get) => ({
     const ok = await rollbackImport(repo, backupId);
     await get().reloadAll();
     return ok;
+  },
+
+  resetSchedule: async () => {
+    const repo = repoFor(get().mode);
+    const cleared = get().performances.map((p) => ({
+      ...p,
+      // keep Unplugged stage assignment (it's fixed); clear everything else
+      stageId: p.type === 'unplugged' ? p.stageId : null,
+      startTime: null,
+      endTime: null,
+      estimatedEndTime: null,
+      scheduleStatus: 'time-pending' as const,
+    }));
+    await repo.putPerformances(cleared);
+    await repo.clearStore('history');
+    await get().reloadAll();
+  },
+
+  resetMap: async () => {
+    const repo = repoFor(get().mode);
+    await repo.clearStore('locations');
+    await repo.clearTravelOverrides();
+    await seedDatabase(repo); // re-seeds seed locations at seed coordinates
+    await get().reloadAll();
+  },
+
+  resetAllLocalData: async () => {
+    const repo = repoFor(get().mode);
+    await repo.clearAll();
+    await seedDatabase(repo);
+    await get().reloadAll();
+  },
+
+  resetDemoData: async () => {
+    await deleteDemoDb();
+    const repo = repoFor('demo');
+    await seedDatabase(repo);
+    await seedDemoSchedule(repo);
+    await seedDemoSelections(repo);
+    if (get().mode === 'demo') await get().reloadAll();
+  },
+
+  enterDemo: async () => {
+    const repo = repoFor('demo');
+    const seeded = await repo.getMeta<number>('seedVersion');
+    if (seeded !== SEED_VERSION) await seedDatabase(repo);
+    // Populate fictional times/selections if not already present.
+    const perfs = await repo.allPerformances();
+    if (!perfs.some((p) => p.startTime)) {
+      await seedDemoSchedule(repo);
+      await seedDemoSelections(repo);
+    }
+    set({ mode: 'demo' });
+    await get().reloadAll();
+  },
+
+  exitDemo: async () => {
+    set({ mode: 'prod' });
+    await get().reloadAll();
   },
 }));
 

@@ -130,6 +130,7 @@ export function MapMarker({
   xPercent,
   yPercent,
   onClick,
+  ariaLabel,
   children,
   anchor = 'bottom',
   z = 1,
@@ -137,6 +138,7 @@ export function MapMarker({
   xPercent: number;
   yPercent: number;
   onClick?: () => void;
+  ariaLabel?: string;
   children: ReactNode;
   anchor?: 'bottom' | 'center';
   z?: number;
@@ -148,6 +150,9 @@ export function MapMarker({
     >
       <div
         className="pointer-events-auto"
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        aria-label={ariaLabel}
         style={{
           transform:
             anchor === 'bottom'
@@ -156,6 +161,12 @@ export function MapMarker({
           transformOrigin: anchor === 'bottom' ? 'bottom center' : 'center',
         }}
         onClick={onClick}
+        onKeyDown={(e) => {
+          if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            onClick();
+          }
+        }}
       >
         {children}
       </div>
