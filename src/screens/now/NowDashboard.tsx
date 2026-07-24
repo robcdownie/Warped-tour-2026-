@@ -262,7 +262,10 @@ export function NowDashboard({
             </div>
           );
         })()}
-        <p className="mt-2 text-[11px] text-muted">Planned from everyone&apos;s schedule — not live GPS.</p>
+        <p className="mt-2 text-[11px] text-muted">
+          Planned from everyone&apos;s schedule — not live GPS. Check-ins stay on the phone that
+          made them.
+        </p>
       </Card>
 
       {/* Best meetup */}

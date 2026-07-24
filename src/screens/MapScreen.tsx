@@ -292,9 +292,12 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
             375×667 phone they'd otherwise eat most of the map. */}
         <div className="pointer-events-none absolute inset-x-3 top-2 z-10 space-y-1.5">
           <div className="pointer-events-auto">
+            {/* The old wording ("unless someone manually checks in") implied a
+                friend's check-in could turn up here. Nothing syncs, and there
+                is no way to send one, so it never can — say so. */}
             <FirstUseTip id="map" className="mb-0 shadow-lg">
-              Friend positions come from schedules unless someone manually checks in. Planned
-              positions are not live GPS.
+              Everyone&apos;s position here is worked out from their schedule — not live GPS.
+              Checking in only changes your own pin on your own phone; it is not sent to anyone.
             </FirstUseTip>
           </div>
 
@@ -400,7 +403,7 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
         <div className="mt-1 flex items-center gap-2">
           <span className="flex-1 text-[11px] text-muted">
             {myCheckin
-              ? `You checked in ${formatRelative(myCheckin.updatedAt)}`
+              ? `You checked in ${formatRelative(myCheckin.updatedAt)} — only on this phone`
               : 'Positions are planned, not live GPS.'}
           </span>
           {myCheckin && (

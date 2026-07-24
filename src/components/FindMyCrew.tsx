@@ -88,7 +88,8 @@ export function FindMyCrew({
         </div>
 
         <p className="mb-3 text-[12px] text-muted">
-          As of {formatMinutes(atMinute)}. Planned positions come from schedules — not live GPS.
+          As of {formatMinutes(atMinute)}. Positions come from each person&apos;s schedule — not
+          live GPS. A check-in only shows on the phone that made it.
         </p>
 
         <ul className="space-y-2">
