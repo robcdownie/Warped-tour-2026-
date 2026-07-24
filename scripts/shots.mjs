@@ -151,6 +151,83 @@ async function walk(browser, base, vp) {
     await page.waitForTimeout(500);
     await shoot('about', { full: true });
   }
+  // close menu route
+  await tap('button[aria-label="Back"]', 2000);
+
+  // ---- seeded pass: populate a realistic day so data-rich screens render ----
+  screen = 'seed';
+  const seeded = await page.evaluate(async () => {
+    const W = window.__WLB__;
+    if (!W) return false;
+    const perfs = W.state().performances;
+    const sat = perfs.filter((p) => p.type === 'main' && p.day === 'saturday');
+    const byName = (n) => sat.find((p) => W.state().artistById.get(p.artistId)?.name === n);
+    const plan = [
+      ['Jimmy Eat World', 'ghost-stage', '15:05', '15:50'],
+      ['The Story So Far', 'rex-stage', '16:10', '16:55'],
+      ['Simple Plan', 'vans-stage', '17:30', '18:20'],
+      ['Underoath', 'beatbox-stage', '15:20', '16:05'],
+      ['Bowling For Soup', 'doordash-stage', '16:30', '17:15'],
+    ];
+    for (const [name, stage, s, e] of plan) {
+      const p = byName(name);
+      if (p) await W.updatePerformance({ ...p, stageId: stage, startTime: s, endTime: e, scheduleStatus: 'scheduled' });
+    }
+    const pick = (name, user, pri) => {
+      const p = byName(name);
+      if (p) { W.toggleSelection(user, p.id); W.setPriority(user, p.id, pri); }
+    };
+    // Robbie
+    await pick('Jimmy Eat World', 'robbie', 'must-see');
+    await pick('The Story So Far', 'robbie', 'want-to-see');
+    await pick('Simple Plan', 'robbie', 'must-see');
+    // Ari
+    await pick('Jimmy Eat World', 'ari', 'must-see');
+    await pick('Underoath', 'ari', 'must-see');
+    // Morgan
+    await pick('Bowling For Soup', 'morgan', 'want-to-see');
+    await pick('Simple Plan', 'morgan', 'must-see');
+    // mark friend imports so metadata shows
+    const st = W.state();
+    await st.updateSettings({
+      friendImports: {
+        ari: { userId: 'ari', importedAt: new Date(Date.now() - 22 * 60000).toISOString(), selectionCount: 2 },
+        morgan: { userId: 'morgan', importedAt: new Date(Date.now() - 5 * 60000).toISOString(), selectionCount: 2 },
+      },
+    });
+    return true;
+  }).catch(() => false);
+
+  if (seeded) {
+    // Group timeline
+    screen = 'group-seeded';
+    await tap('nav[aria-label="Primary"] button[aria-label="Group"]');
+    await page.waitForTimeout(500);
+    await shoot('group-timeline', { full: true });
+    if (await tap('button:has-text("Shared")')) { await page.waitForTimeout(300); await shoot('group-shared', { full: true }); }
+    if (await tap('button:has-text("By Person")')) { await page.waitForTimeout(300); await shoot('group-person', { full: true }); }
+    if (await tap('button:has-text("Free Time")')) { await page.waitForTimeout(300); await shoot('group-free', { full: true }); }
+
+    // Schedule -> My Day (personal schedule with data)
+    screen = 'schedule-seeded';
+    await tap('nav[aria-label="Primary"] button[aria-label="Schedule"]');
+    await page.waitForTimeout(300);
+    if (await tap('button:has-text("My Day")')) { await page.waitForTimeout(300); await shoot('schedule-myday', { full: true }); }
+    if (await tap('button:has-text("Conflicts")')) { await page.waitForTimeout(300); await shoot('schedule-conflicts', { full: true }); }
+
+    // Friends screen
+    screen = 'friends-seeded';
+    await tap('header button[aria-label="Open menu"]');
+    await page.waitForTimeout(300);
+    if (await tap('button:has-text("Friends & Sharing")')) { await page.waitForTimeout(400); await shoot('friends', { full: true }); }
+    await tap('button[aria-label="Back"]', 2000);
+
+    // Now dashboard (schedule now loaded)
+    screen = 'now-dashboard';
+    await tap('nav[aria-label="Primary"] button[aria-label="Now"]');
+    await page.waitForTimeout(400);
+    await shoot('now-dashboard', { full: true });
+  }
 
   await context.close();
   return shots;

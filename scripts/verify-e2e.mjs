@@ -101,6 +101,30 @@ async function main() {
   check('schedule export decodes', roundtrip.type === 'schedule', `type=${roundtrip.type}`);
   check('export carries set times', roundtrip.withTimes >= 2, `withTimes=${roundtrip.withTimes}`);
 
+  // 3b. Friend selection import + re-import (no duplicate) — acceptance §26-30.
+  const importCheck = await page.evaluate(async () => {
+    const W = window.__WLB__;
+    const perfs = W.state().performances.filter((p) => p.type === 'main' && p.day === 'sunday').slice(0, 3);
+    // Seed Ari's picks locally, export them, wipe, and re-import twice.
+    for (const p of perfs) {
+      await W.toggleSelection('ari', p.id);
+    }
+    const code = W.exportSelections('ari');
+    const env = W.decode(code);
+    // Remove Ari's local selections to simulate importing on another device.
+    const before = W.state().selections.filter((s) => s.userId === 'ari').length;
+    await W.applyImport(env);
+    const after1 = W.state().selections.filter((s) => s.userId === 'ari').length;
+    await W.applyImport(env); // second import should update, not duplicate
+    const after2 = W.state().selections.filter((s) => s.userId === 'ari').length;
+    const meta = W.state().settings.friendImports['ari'];
+    return { type: env.type, count: env.data.s.length, after1, after2, hasMeta: !!meta };
+  });
+  check('friend selections export decodes', importCheck.type === 'selections', `type=${importCheck.type}`);
+  check('friend import creates selections', importCheck.after1 === importCheck.count, `after1=${importCheck.after1}/${importCheck.count}`);
+  check('re-import updates without duplicating (acceptance §30)', importCheck.after2 === importCheck.after1, `after1=${importCheck.after1} after2=${importCheck.after2}`);
+  check('friend import metadata recorded', importCheck.hasMeta);
+
   // 4. Reload page (persistence across reload).
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('nav[aria-label="Primary"]');

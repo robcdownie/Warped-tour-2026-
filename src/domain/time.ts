@@ -150,6 +150,19 @@ function tzOffsetMs(date: Date, timeZone: string): number {
   return asUTC - date.getTime();
 }
 
+/** "22 minutes ago", "just now", "3 hours ago", "2 days ago". */
+export function formatRelative(iso: string, now: Date = new Date()): string {
+  const then = new Date(iso).getTime();
+  const diffSec = Math.floor((now.getTime() - then) / 1000);
+  if (diffSec < 45) return 'just now';
+  const min = Math.floor(diffSec / 60);
+  if (min < 60) return `${min} minute${min === 1 ? '' : 's'} ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} hour${hr === 1 ? '' : 's'} ago`;
+  const day = Math.floor(hr / 24);
+  return `${day} day${day === 1 ? '' : 's'} ago`;
+}
+
 export function dayLabel(day: DayId | null): string {
   if (!day) return 'TBA';
   return EVENT.days.find((d) => d.id === day)?.label ?? day;
