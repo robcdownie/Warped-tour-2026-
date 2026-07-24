@@ -1,42 +1,17 @@
 // Generates PWA icons (192, 512, maskable 512, apple-touch 180) and a favicon
-// from a self-contained SVG. No remote assets. Usage: npm run assets:icons
+// from the generated emblem art (docs/assets/icon-source.png — created via
+// scripts/gen-art.mjs / fal.ai, committed so icons can always be re-derived).
+// No remote assets at build time. Usage: npm run assets:icons
 import sharp from 'sharp';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUT = resolve(__dirname, '..', 'public/icons');
+const root = resolve(__dirname, '..');
+const SRC = resolve(root, 'docs/assets/icon-source.png');
+const OUT = resolve(root, 'public/icons');
 mkdirSync(OUT, { recursive: true });
-
-// Warped-inspired mark: blue field, yellow burst, hot-pink arrow, "WLB" wordmark.
-function svg({ maskable = false } = {}) {
-  const pad = maskable ? 64 : 24; // maskable needs safe-zone padding
-  const s = 512;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1f5fa8"/>
-      <stop offset="1" stop-color="#0b2f6b"/>
-    </linearGradient>
-  </defs>
-  <rect width="${s}" height="${s}" rx="${maskable ? 0 : 96}" fill="url(#bg)"/>
-  <g transform="translate(${pad},${pad})">
-    <g transform="translate(${(s - 2 * pad) / 2},${(s - 2 * pad) / 2})">
-      <!-- yellow burst -->
-      <polygon points="-150,-60 -60,-110 -40,-30 60,-120 40,-20 150,-40 70,20 150,80 40,60 70,150 -20,70 -70,150 -70,40 -160,60 -80,-10"
-               fill="#ffd21e" opacity="0.95"/>
-      <!-- pink arrow chevron -->
-      <path d="M -120,-10 L 40,-10 L 40,-60 L 150,20 L 40,100 L 40,50 L -120,50 Z"
-            fill="#ff2d78"/>
-      <!-- wordmark -->
-      <text x="-8" y="30" font-family="Arial Black, Arial, sans-serif" font-weight="900"
-            font-size="150" fill="#ffffff" text-anchor="middle"
-            stroke="#0a0f1c" stroke-width="8" paint-order="stroke">WLB</text>
-    </g>
-  </g>
-</svg>`;
-}
 
 const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <rect width="64" height="64" rx="14" fill="#0b2f6b"/>
@@ -45,19 +20,31 @@ const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" 
 </svg>`;
 
 async function main() {
-  const base = Buffer.from(svg());
-  const maskable = Buffer.from(svg({ maskable: true }));
+  if (!existsSync(SRC)) throw new Error(`Icon source art missing: ${SRC}`);
 
-  await sharp(base).resize(192, 192).png().toFile(resolve(OUT, 'pwa-192.png'));
-  await sharp(base).resize(512, 512).png().toFile(resolve(OUT, 'pwa-512.png'));
-  await sharp(maskable).resize(512, 512).png().toFile(resolve(OUT, 'maskable-512.png'));
-  await sharp(base)
-    .resize(180, 180)
-    .flatten({ background: '#0b2f6b' })
-    .png()
-    .toFile(resolve(OUT, 'apple-touch-icon-180.png'));
+  // Sample the art's own background color so the maskable padding blends in.
+  const { data } = await sharp(SRC).extract({ left: 4, top: 4, width: 8, height: 8 }).raw().toBuffer({ resolveWithObject: true });
+  const bg = { r: data[0], g: data[1], b: data[2] };
+
+  // Palette-quantized PNGs — flat screen-print art compresses ~4x with no
+  // visible loss, which keeps the offline precache small.
+  const png = { palette: true, quality: 80, compressionLevel: 9 };
+
+  // Full-bleed app icons (the OS applies its own corner rounding).
+  await sharp(SRC).resize(192, 192).png(png).toFile(resolve(OUT, 'pwa-192.png'));
+  await sharp(SRC).resize(512, 512).png(png).toFile(resolve(OUT, 'pwa-512.png'));
+
+  // Maskable: shrink the art into the safe zone and pad with its bg color.
+  const inner = await sharp(SRC).resize(400, 400).png().toBuffer();
+  await sharp({ create: { width: 512, height: 512, channels: 3, background: bg } })
+    .composite([{ input: inner, left: 56, top: 56 }])
+    .png(png)
+    .toFile(resolve(OUT, 'maskable-512.png'));
+
+  // iOS home screen icon (no alpha).
+  await sharp(SRC).resize(180, 180).flatten({ background: bg }).png(png).toFile(resolve(OUT, 'apple-touch-icon-180.png'));
+
   writeFileSync(resolve(OUT, 'favicon.svg'), faviconSvg);
-
   console.log('Icons written to', OUT);
 }
 
