@@ -5,6 +5,7 @@ import { OfflineTestScreen } from './OfflineTestScreen';
 import { AboutScreen } from './AboutScreen';
 import { ScheduleIoScreen } from './ScheduleIoScreen';
 import { FriendsScreen } from './FriendsScreen';
+import { CalibrationScreen } from './CalibrationScreen';
 import { PlaceholderMenu } from './PlaceholderMenu';
 
 const TITLES: Record<MenuRoute, string> = {
@@ -61,6 +62,8 @@ function RouteBody({ route, onGoTab }: { route: MenuRoute; onGoTab: (t: TabId) =
       return <ScheduleIoScreen />;
     case 'friends':
       return <FriendsScreen />;
+    case 'calibration':
+      return <CalibrationScreen />;
     default:
       return <PlaceholderMenu route={route} onGoTab={onGoTab} />;
   }

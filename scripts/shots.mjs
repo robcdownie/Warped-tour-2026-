@@ -222,6 +222,25 @@ async function walk(browser, base, vp) {
     if (await tap('button:has-text("Friends & Sharing")')) { await page.waitForTimeout(400); await shoot('friends', { full: true }); }
     await tap('button[aria-label="Back"]', 2000);
 
+    // Map with pins + friends
+    screen = 'map-seeded';
+    await tap('nav[aria-label="Primary"] button[aria-label="Map"]');
+    await page.waitForTimeout(700);
+    // Move the time slider to 5:45 PM so friends are spread across stages.
+    await page.evaluate(() => {
+      const el = document.querySelector('input[type="range"][aria-label="Time of day"]');
+      if (el) {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(el, '1065');
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    await page.waitForTimeout(500);
+    await shoot('map-friends');
+    // Toggle stages filter to show stage pins clearly
+    if (await tap('button:has-text("Stages")')) { await page.waitForTimeout(400); await shoot('map-stages'); }
+
     // Now dashboard (schedule now loaded)
     screen = 'now-dashboard';
     await tap('nav[aria-label="Primary"] button[aria-label="Now"]');
