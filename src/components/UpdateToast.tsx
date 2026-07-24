@@ -1,0 +1,31 @@
+import { useEffect, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
+import { onPwaState, type UpdateState } from '@/pwa';
+import { Button } from './ui';
+
+/** Shows a non-intrusive prompt when a new app version is available. */
+export function UpdateToast() {
+  const [state, setState] = useState<UpdateState | null>(null);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => onPwaState(setState), []);
+
+  if (!state?.needRefresh || dismissed) return null;
+
+  return (
+    <div className="fixed inset-x-3 bottom-24 z-50 mx-auto max-w-[520px]">
+      <div className="surface-card flex items-center gap-3 rounded-2xl border border-subtle p-3 shadow-xl">
+        <RefreshCw size={20} className="text-warp-blue-500" aria-hidden />
+        <div className="flex-1 text-[13px] text-primary">
+          A new version is ready. Update when you have signal.
+        </div>
+        <Button variant="secondary" className="px-3" onClick={() => setDismissed(true)}>
+          Later
+        </Button>
+        <Button variant="primary" className="px-3" onClick={() => state.update()}>
+          Update
+        </Button>
+      </div>
+    </div>
+  );
+}

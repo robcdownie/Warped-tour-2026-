@@ -1,0 +1,173 @@
+@import 'tailwindcss';
+@import '@fontsource/archivo-black/400.css';
+
+/*
+  Warped Long Beach Companion — theme.
+  Palette sampled from the supplied Vans Warped Long Beach artwork:
+  saturated blue, bright yellow, hot pink, black, white, small orange accents.
+*/
+
+@theme {
+  /* Brand blues */
+  --color-warp-blue-50: #eaf1fb;
+  --color-warp-blue-100: #c8dbf3;
+  --color-warp-blue-200: #93b4e6;
+  --color-warp-blue-300: #5b8ad6;
+  --color-warp-blue-400: #2f66c4;
+  --color-warp-blue-500: #1f5fa8;
+  --color-warp-blue-600: #164a8c;
+  --color-warp-blue-700: #0f3b74;
+  --color-warp-blue-800: #0b2f6b;
+  --color-warp-blue-900: #082450;
+  --color-warp-blue-950: #05193a;
+
+  /* Accents */
+  --color-warp-yellow: #ffd21e;
+  --color-warp-yellow-dark: #e8b800;
+  --color-warp-pink: #ff2d78;
+  --color-warp-pink-dark: #d61e60;
+  --color-warp-orange: #ff7a1a;
+  --color-warp-teal: #17b3a3;
+
+  /* Semantic */
+  --color-warp-ink: #0a0f1c;
+  --color-warp-danger: #ff4d4d;
+  --color-warp-warn: #ffb020;
+  --color-warp-ok: #2ec16b;
+
+  --font-display: 'Archivo Black', system-ui, sans-serif;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+
+  --radius-card: 1rem;
+}
+
+/* Light/dark surface tokens driven by a data attribute + media query. */
+:root {
+  --surface-app: #f2f5fb;
+  --surface-card: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #e9eef7;
+  --text-primary: #0a0f1c;
+  --text-secondary: #4a5568;
+  --text-muted: #6b7280;
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --nav-bg: #0a0f1c;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --surface-app: #05193a;
+  --surface-card: #0b2f6b;
+  --surface-raised: #0f3b74;
+  --surface-sunken: #082450;
+  --text-primary: #f4f8ff;
+  --text-secondary: #b9c9e6;
+  --text-muted: #8ea6cf;
+  --border-subtle: #164a8c;
+  --border-strong: #1f5fa8;
+  --nav-bg: #05122b;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --surface-app: #05193a;
+    --surface-card: #0b2f6b;
+    --surface-raised: #0f3b74;
+    --surface-sunken: #082450;
+    --text-primary: #f4f8ff;
+    --text-secondary: #b9c9e6;
+    --text-muted: #8ea6cf;
+    --border-subtle: #164a8c;
+    --border-strong: #1f5fa8;
+    --nav-bg: #05122b;
+    color-scheme: dark;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--surface-app);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+}
+
+/* Safe-area helpers for iPhone notch / home indicator. */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility pl-safe {
+  padding-left: env(safe-area-inset-left);
+}
+@utility pr-safe {
+  padding-right: env(safe-area-inset-right);
+}
+@utility min-h-touch {
+  min-height: 44px;
+}
+@utility min-w-touch {
+  min-width: 44px;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+/* Surface utility classes bound to the theme tokens. */
+.surface-app {
+  background: var(--surface-app);
+}
+.surface-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+}
+.surface-raised {
+  background: var(--surface-raised);
+}
+.text-primary {
+  color: var(--text-primary);
+}
+.text-secondary {
+  color: var(--text-secondary);
+}
+.text-muted {
+  color: var(--text-muted);
+}
+.border-subtle {
+  border-color: var(--border-subtle);
+}
+
+/* Hide scrollbars on horizontal chip rows but keep scrollability. */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
