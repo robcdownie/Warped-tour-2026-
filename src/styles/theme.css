@@ -51,6 +51,10 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+  /* Height of the fixed BottomNav (52px of content + the home-indicator
+     inset). Anything that must stay tappable above it clears exactly this —
+     guessing with a padding value is how the map controls ended up off-screen. */
+  --nav-h: calc(var(--safe-bottom) + 52px);
   --surface-app: #f2f5fb;
   --surface-card: #ffffff;
   --surface-raised: #ffffff;
@@ -127,6 +131,27 @@ html,
 body,
 #root {
   height: 100%;
+}
+
+/* iOS Home Screen installs resolve `height: 100%` against a viewport that can
+   exclude the home-indicator strip, so the app laid out ~60px short and the
+   fixed bottom nav floated above the physical bottom of the screen. dvh
+   tracks the real viewport, which recovers that band. */
+@supports (height: 100dvh) {
+  html,
+  body,
+  #root {
+    height: 100dvh;
+  }
+}
+
+/* The document canvas — what iOS paints in any strip the layout viewport
+   still doesn't cover (e.g. a Home Screen icon added before these settings
+   existed, which keeps its cached launch metadata until it's re-added).
+   Painting it in the nav colour makes such a strip read as part of the bar
+   rather than as a gap of page background below it. */
+html {
+  background: var(--nav-bg);
 }
 
 body {

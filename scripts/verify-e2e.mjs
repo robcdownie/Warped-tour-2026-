@@ -532,6 +532,33 @@ async function renderPass(base, cfg) {
     check('bottom nav clears the home indicator', clears);
   }
 
+  // The map's own controls are fixed to the bottom of a non-scrolling column,
+  // so they're the first thing to disappear under the nav when the chrome
+  // above them grows. Checking the nav's own position never caught that.
+  await page.click('nav[aria-label="Primary"] button[aria-label="Map"]').catch(() => {});
+  await page.waitForTimeout(500);
+  const mapControls = await page.evaluate(() => {
+    const nav = document.querySelector('nav[aria-label="Primary"]');
+    const slider = document.querySelector('input[type="range"][aria-label="Time of day"]');
+    const checkIn = [...document.querySelectorAll('button')].find(
+      (b) => b.textContent.trim() === 'Check in',
+    );
+    const main = document.querySelector('main');
+    if (!nav || !slider || !checkIn || !main) return { found: false };
+    const navTop = nav.getBoundingClientRect().top;
+    return {
+      found: true,
+      sliderClear: slider.getBoundingClientRect().bottom <= navTop,
+      checkInClear: checkIn.getBoundingClientRect().bottom <= navTop,
+      // The map screen sizes itself to the viewport; it must never scroll.
+      noOverflow: main.scrollHeight <= main.clientHeight + 1,
+      overflowBy: main.scrollHeight - main.clientHeight,
+    };
+  });
+  check('map time slider sits above the nav', mapControls.found && mapControls.sliderClear, JSON.stringify(mapControls));
+  check('map Check in button sits above the nav', mapControls.found && mapControls.checkInClear);
+  check('map screen fits the viewport without scrolling', mapControls.found && mapControls.noOverflow, `overflowBy=${mapControls.overflowBy}px`);
+
   check('no uncaught page errors', errors.length === 0, errors[0] ?? '');
   await browser.close();
   prefix = '';

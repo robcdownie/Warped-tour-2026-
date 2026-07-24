@@ -198,41 +198,32 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
       : null;
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="px-3 pt-2">
-        <FirstUseTip id="map">
-          Friend positions come from schedules unless someone manually checks in. Planned positions
-          are not live GPS.
-        </FirstUseTip>
-
-        {/* The map is a traced reference until a human confirms it against the
-            official 2026 map. A cached image is not a verified one. */}
-        {!mapMeta.verified && (
-          <button
-            type="button"
-            onClick={() => onOpenMenu('map-setup')}
-            className="mb-2 flex w-full items-center gap-1.5 rounded-lg bg-warp-warn/15 px-2.5 py-1.5 text-left text-[12px] text-warn"
-          >
-            <TriangleAlert size={13} className="shrink-0" aria-hidden />
-            <span className="flex-1">Reference layout — verify against the official 2026 festival map.</span>
-            <span className="font-bold">Check</span>
-          </button>
-        )}
-
-        {/* One-tap essentials: the most common map needs aren't stages. */}
-        <EssentialsStrip className="mb-2" active={essential?.key ?? null} onPick={pickEssential} />
-
-        <div className="no-scrollbar scroll-fade-r flex gap-1.5 overflow-x-auto pb-2">
+    // min-h-0 on the column AND the map cell: without it the map's intrinsic
+    // height wins over flex-1, the screen grows past the viewport, and the
+    // controls at the bottom (slider, day toggle, Check in) end up under the
+    // fixed nav where they can't be reached.
+    <div className="flex h-full min-h-0 flex-col">
+      {/* ONE scrollable row. Essentials lead — the things people actually open
+          a festival map for aren't stages — then the rest of the filters.
+          Two stacked rows plus two banners cost ~260px of a 690px screen. */}
+      <div className="shrink-0 px-3 pb-1.5 pt-2">
+        <div className="no-scrollbar scroll-fade-r flex items-stretch gap-1.5 overflow-x-auto">
           <button
             type="button"
             onClick={() => { setMatterNow((v) => !v); setEssential(null); }}
+            aria-pressed={matterNow}
             className={cx(
-              'inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border px-3 text-[13px] font-bold',
+              'inline-flex min-h-touch shrink-0 items-center gap-1 rounded-full border px-3 text-[13px] font-bold',
               matterNow ? 'border-warp-yellow bg-warp-yellow text-warp-ink' : 'border-warp-yellow/60 bg-warp-yellow/10 text-warn',
             )}
           >
             <Sparkles size={14} aria-hidden /> Now
           </button>
+
+          <EssentialsStrip active={essential?.key ?? null} onPick={pickEssential} />
+
+          <span className="my-1.5 w-px shrink-0 bg-[var(--border-subtle)]" aria-hidden />
+
           {FILTER_ORDER.map((k) => (
             <button
               key={k}
@@ -243,7 +234,7 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
               }}
               aria-pressed={active.has(k)}
               className={cx(
-                'inline-flex min-h-9 shrink-0 items-center rounded-full border px-3 text-[13px] font-semibold',
+                'inline-flex min-h-touch shrink-0 items-center rounded-full border px-3 text-[13px] font-semibold',
                 active.has(k) && !matterNow && !essential ? 'border-[var(--chip-on-border)] bg-[var(--chip-on)] text-white' : 'border-subtle bg-[var(--surface-card)] text-secondary',
               )}
             >
@@ -254,10 +245,10 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
       </div>
 
       {/* Map */}
-      <div className="relative flex-1 px-3">
+      <div className="relative min-h-0 flex-1 px-3">
         <MapCanvas
           ref={mapRef}
-          className="h-full min-h-[380px]"
+          className="h-full"
           onBackgroundTap={(x, y) => {
             if (checkInMode) doCheckIn(null, { xPercent: x, yPercent: y });
           }}
@@ -297,6 +288,31 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
             )}
         </MapCanvas>
 
+        {/* Banners float OVER the map rather than pushing it down — on a
+            375×667 phone they'd otherwise eat most of the map. */}
+        <div className="pointer-events-none absolute inset-x-3 top-2 z-10 space-y-1.5">
+          <div className="pointer-events-auto">
+            <FirstUseTip id="map" className="mb-0 shadow-lg">
+              Friend positions come from schedules unless someone manually checks in. Planned
+              positions are not live GPS.
+            </FirstUseTip>
+          </div>
+
+          {/* The map is a traced reference until a human confirms it against the
+              official 2026 map. A cached image is not a verified one. */}
+          {!mapMeta.verified && (
+            <button
+              type="button"
+              onClick={() => onOpenMenu('map-setup')}
+              className="pointer-events-auto flex w-full items-center gap-1.5 rounded-lg bg-warp-warn/95 px-2.5 py-1.5 text-left text-[12px] font-semibold text-warp-ink shadow-lg"
+            >
+              <TriangleAlert size={13} className="shrink-0" aria-hidden />
+              <span className="flex-1">Reference layout — check against the official 2026 map.</span>
+              <span className="underline">Verify</span>
+            </button>
+          )}
+        </div>
+
         {/* Empty hint if map has nothing */}
         {visibleLocations.length === 0 && !showFriends && (
           <div className="pointer-events-none absolute inset-x-0 top-1/3 flex justify-center">
@@ -306,9 +322,9 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
           </div>
         )}
 
-        {/* Check-in mode banner */}
+        {/* Check-in mode banner — z-20 so it sits above the notices. */}
         {checkInMode && (
-          <div className="absolute inset-x-3 top-2 z-10 flex items-center gap-2 rounded-xl bg-warp-blue-800/95 px-3 py-2 text-white shadow-lg">
+          <div className="absolute inset-x-3 top-2 z-20 flex items-center gap-2 rounded-xl bg-warp-blue-800/95 px-3 py-2 text-white shadow-lg">
             <Crosshair size={16} aria-hidden />
             <span className="flex-1 text-[13px] font-semibold">Tap the map or a pin to check in</span>
             <button type="button" onClick={() => setCheckInMode(false)} aria-label="Cancel" className="p-1">
@@ -332,8 +348,10 @@ export function MapScreen({ onOpenMenu }: { onOpenMenu: (r: MenuRoute) => void }
         )}
       </div>
 
-      {/* Bottom controls: time slider + check-in */}
-      <div className="border-t border-subtle bg-[var(--surface-card)] px-3 pb-[calc(var(--safe-bottom)+5rem)] pt-2">
+      {/* Bottom controls: time slider + check-in. pb clears exactly the fixed
+          nav (--nav-h) — the old hardcoded 5rem was a guess that left the
+          slider and Check in button stranded underneath it. */}
+      <div className="shrink-0 border-t border-subtle bg-[var(--surface-card)] px-3 pb-[calc(var(--nav-h)+0.5rem)] pt-2">
         <div className="mb-1.5 flex items-center gap-2">
           <div className="flex rounded-lg bg-[var(--surface-sunken)] p-0.5">
             {(['saturday', 'sunday'] as DayId[]).map((d) => (

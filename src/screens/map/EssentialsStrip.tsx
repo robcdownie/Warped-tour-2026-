@@ -31,21 +31,20 @@ export const ESSENTIALS: Essential[] = [
   { key: 'merch', label: 'Merch', Icon: ShoppingBag, match: amenity(['Warped Merch', 'General Store', 'Vendor Village']) },
 ];
 
+/**
+ * Renders bare buttons (no wrapper) so they share the map's single scrolling
+ * filter row. A second stacked row cost ~60px of a 690px screen, which is what
+ * pushed the map's time slider and Check in button off the bottom.
+ */
 export function EssentialsStrip({
   active,
   onPick,
-  className,
 }: {
   active: FilterKey | null;
   onPick: (essential: Essential) => void;
-  className?: string;
 }) {
   return (
-    <div
-      className={cx('no-scrollbar scroll-fade-r flex gap-1.5 overflow-x-auto', className)}
-      role="group"
-      aria-label="Festival essentials"
-    >
+    <>
       {ESSENTIALS.map((e) => (
         <button
           key={e.key}
@@ -53,17 +52,17 @@ export function EssentialsStrip({
           onClick={() => onPick(e)}
           aria-pressed={active === e.key}
           className={cx(
-            'inline-flex min-h-touch shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-3 py-1',
+            'inline-flex min-h-touch shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-bold',
             active === e.key
               ? 'border-warp-yellow bg-warp-yellow text-warp-ink'
-              : 'border-subtle bg-[var(--surface-card)] text-secondary',
+              : 'border-accent-soft bg-accent-soft text-accent',
           )}
         >
-          <e.Icon size={17} aria-hidden />
-          <span className="text-[11px] font-bold">{e.label}</span>
+          <e.Icon size={15} aria-hidden />
+          {e.label}
         </button>
       ))}
-    </div>
+    </>
   );
 }
 
