@@ -74,7 +74,11 @@ export function App() {
   if (festivalMode && !menuRoute) {
     return (
       <div className="surface-app relative flex h-full flex-col">
-        <FestivalScreen onOpenMenu={openMenuRoute} onGoTab={goTab} />
+        <FestivalScreen
+          onOpenMenu={openMenuRoute}
+          onOpenDrawer={() => setMenuOpen(true)}
+          onGoTab={goTab}
+        />
         <MenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={openMenuRoute} />
         <UpdateToast />
       </div>

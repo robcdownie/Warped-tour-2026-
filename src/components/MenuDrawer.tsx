@@ -10,6 +10,7 @@ import {
   MapPinned,
   Footprints,
   LifeBuoy,
+  Maximize2,
   X,
 } from 'lucide-react';
 import { cx } from './ui';
@@ -54,6 +55,8 @@ export function MenuDrawer({
   onNavigate: (r: MenuRoute) => void;
 }) {
   const activeUser = useApp((s) => s.userById.get(s.settings.activeUserId));
+  const festivalMode = useApp((s) => s.settings.festivalMode);
+  const updateSettings = useApp((s) => s.updateSettings);
   const panelRef = useRef<HTMLDivElement>(null);
   useModalA11y(open, panelRef, onClose);
 
@@ -92,6 +95,53 @@ export function MenuDrawer({
             <X size={22} aria-hidden />
           </button>
         </div>
+        {/* Festival Mode is a display mode, not a screen, so it had no home in
+            this list — it lived behind an icon on the Now dashboard that only
+            appears once set times exist, plus a Settings toggle. Neither is
+            somewhere you'd look. It's reachable from every screen now. */}
+        <div className="px-2 pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              void updateSettings({ festivalMode: !festivalMode });
+              onClose();
+            }}
+            role="switch"
+            aria-checked={festivalMode}
+            className={cx(
+              'flex w-full items-center gap-3 rounded-xl border-2 px-3 py-3 text-left',
+              festivalMode
+                ? 'border-warp-pink bg-warp-pink/10'
+                : 'border-subtle active:bg-[var(--press)]',
+            )}
+          >
+            <span
+              className={cx(
+                'flex h-10 w-10 items-center justify-center rounded-xl',
+                festivalMode ? 'bg-warp-pink text-white' : 'bg-accent-soft text-accent',
+              )}
+            >
+              <Maximize2 size={20} aria-hidden />
+            </span>
+            <span className="flex-1">
+              <span className="block text-[15px] font-semibold text-primary">Festival Mode</span>
+              <span className="block text-[12px] text-muted">
+                {festivalMode
+                  ? 'On — tap to get the full app back'
+                  : "One screen: what's next, when to leave, where the crew is"}
+              </span>
+            </span>
+            <span
+              className={cx(
+                'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold',
+                festivalMode ? 'bg-warp-pink text-white' : 'bg-[var(--surface-sunken)] text-muted',
+              )}
+            >
+              {festivalMode ? 'ON' : 'OFF'}
+            </span>
+          </button>
+        </div>
+
         <ul className="p-2">
           {ITEMS.map(({ route, label, Icon, desc }) => (
             <li key={route}>

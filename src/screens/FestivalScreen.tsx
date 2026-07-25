@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   CalendarClock,
   Handshake,
+  LifeBuoy,
 } from 'lucide-react';
 import { Button, Card, cx } from '@/components/ui';
 import { FriendAvatar } from '@/components/FriendAvatar';
@@ -35,9 +36,11 @@ import type { Performance } from '@/domain/types';
  */
 export function FestivalScreen({
   onOpenMenu,
+  onOpenDrawer,
   onGoTab,
 }: {
   onOpenMenu: (r: MenuRoute) => void;
+  onOpenDrawer: () => void;
   onGoTab: (t: TabId) => void;
 }) {
   const { day, atMinute, live } = useFestivalClock(15000);
@@ -132,8 +135,8 @@ export function FestivalScreen({
         </button>
         <button
           type="button"
-          onClick={() => onOpenMenu('settings')}
-          aria-label="Menu"
+          onClick={onOpenDrawer}
+          aria-label="Open menu"
           className="min-h-touch min-w-touch flex items-center justify-center rounded-xl bg-[var(--surface-sunken)] text-secondary"
         >
           <Menu size={19} aria-hidden />
@@ -257,13 +260,24 @@ export function FestivalScreen({
           </p>
         )}
 
-        <button
-          type="button"
-          onClick={() => onGoTab('group')}
-          className="mt-3 flex min-h-touch w-full items-center justify-center gap-1.5 text-[13px] font-semibold text-accent"
-        >
-          <Handshake size={15} aria-hidden /> Group day view
-        </button>
+        <div className="mt-3 flex items-center justify-center gap-4">
+          <button
+            type="button"
+            onClick={() => onGoTab('group')}
+            className="flex min-h-touch items-center justify-center gap-1.5 text-[13px] font-semibold text-accent"
+          >
+            <Handshake size={15} aria-hidden /> Group day view
+          </button>
+          {/* The one setup-ish screen worth keeping a tap away on the day: a
+              plain-text plan that survives a flat battery. */}
+          <button
+            type="button"
+            onClick={() => onOpenMenu('emergency')}
+            className="flex min-h-touch items-center justify-center gap-1.5 text-[13px] font-semibold text-accent"
+          >
+            <LifeBuoy size={15} aria-hidden /> Emergency plan
+          </button>
+        </div>
       </div>
 
       {crewOpen && (
