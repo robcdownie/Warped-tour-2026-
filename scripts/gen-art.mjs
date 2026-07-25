@@ -63,15 +63,12 @@ const ASSETS = {
     resolution: '2K',
     out: [{ file: 'hero.webp', width: 1080, quality: 80 }],
   },
-  icon: {
-    // Raw only — consumed by gen-icons.mjs (never shipped at full size).
-    prompt:
-      `${STYLE}, bold sticker-style emblem, centered composition: an electric guitar ` +
-      'crossed with a palm tree over a breaking ocean wave, radiating yellow sunburst behind, ' +
-      'thick white outline around the emblem, symmetrical, iconic, simple enough to read at tiny sizes',
-    image_size: 'square_hd',
-    out: [],
-  },
+  // NOTE: the app icon and the iOS launch images are NOT generated. An icon is
+  // ~60 CSS px on a phone, which needs two or three shapes with hard contrast —
+  // the generated emblem (guitar + palm + wave + sunburst) turned to mush at
+  // that size and shared nothing with the app's own wordmark. Both are drawn
+  // as vectors instead: scripts/icon-source.mjs, rendered by gen-icons.mjs and
+  // gen-splash.mjs.
   'empty-group': {
     prompt:
       `${STYLE}, three punk friends doing a fist-bump huddle seen from the front, ` +
@@ -92,24 +89,6 @@ const ASSETS = {
       'stabbed into it like a dagger, dotted path across the map, compass rose, centered spot illustration',
     image_size: 'square_hd',
     out: [{ file: 'empty-map.webp', width: 480, quality: 80 }],
-  },
-  splash: {
-    // iOS home-screen launch image (apple-touch-startup-image). Portrait
-    // composition — the landscape hero doesn't crop to 9:19.5 without losing
-    // the scene. Rendered at 4 device sizes below.
-    prompt:
-      `${STYLE}, tall vertical concert poster composition of the Long Beach California ` +
-      'waterfront at golden hour: a giant halftone sun low over the ocean in the center, ' +
-      'the Queen Mary ship silhouette on the horizon, tall palm trees framing the left and ' +
-      'right edges, a concert crowd with raised fists silhouetted along the bottom, ' +
-      'seagulls in the open sky above, dramatic vertical depth',
-    image_size: { width: 864, height: 1536 },
-    out: [
-      { file: 'splash/splash-1170x2532.png', cover: [1170, 2532], png: true },
-      { file: 'splash/splash-1179x2556.png', cover: [1179, 2556], png: true },
-      { file: 'splash/splash-1290x2796.png', cover: [1290, 2796], png: true },
-      { file: 'splash/splash-750x1334.png', cover: [750, 1334], png: true },
-    ],
   },
   'empty-bands': {
     // Derived from the icon emblem rather than generated: every attempt at an

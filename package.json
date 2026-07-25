@@ -14,7 +14,8 @@
     "verify": "npm run build && node scripts/verify-e2e.mjs",
     "assets:map": "node scripts/crop-map.mjs",
     "assets:icons": "node scripts/gen-icons.mjs",
-    "assets": "npm run assets:map && npm run assets:icons"
+    "assets:splash": "node scripts/gen-splash.mjs",
+    "assets": "npm run assets:map && npm run assets:icons && npm run assets:splash"
   },
   "dependencies": {
     "fflate": "^0.8.2",
