@@ -57,6 +57,7 @@ export function OnboardingFlow({
   }, [step]);
 
   const chosenUser = users.find((u) => u.id === (picked ?? activeUserId));
+  const isOrganizerNow = (picked ?? activeUserId) === 'robbie';
 
   const finish = async (dest: { tab?: TabId; menu?: MenuRoute }) => {
     await completeOnboarding(picked ?? activeUserId);
@@ -103,9 +104,14 @@ export function OnboardingFlow({
           <PlanStep
             headingRef={headingRef}
             userName={chosenUser?.name ?? 'you'}
-            isOrganizer={(picked ?? activeUserId) === 'robbie'}
+            isOrganizer={isOrganizerNow}
             onPickBands={() => void finish({ tab: 'bands' })}
-            onImport={() => void finish({ menu: 'friends' })}
+            // The card tells a non-organizer to scan Robbie's SCHEDULE code,
+            // and 'friends' only accepts selections — so the last step of
+            // onboarding routed them to a screen that refuses the code it just
+            // told them to bring. Organizers restoring a backup still want
+            // Friends; everyone else wants the schedule importer.
+            onImport={() => void finish({ menu: isOrganizerNow ? 'friends' : 'schedule-io' })}
             onSkip={() => void finish({ tab: 'now' })}
           />
         )}
