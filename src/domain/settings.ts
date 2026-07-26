@@ -56,6 +56,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   boardPicksOnly: true,
   scheduleView: null,
   ignoredConflicts: [],
+  daylightMode: false,
 };
 
 /**
