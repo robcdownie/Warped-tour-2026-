@@ -55,6 +55,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   boardStageId: null,
   boardPicksOnly: true,
   scheduleView: null,
+  ignoredConflicts: [],
 };
 
 /**
@@ -72,6 +73,7 @@ export function mergeSettings(stored: Partial<AppSettings> | undefined): AppSett
     setupPostponed: stored?.setupPostponed ?? [],
     dismissedTips: stored?.dismissedTips ?? [],
     breakNeeds: stored?.breakNeeds ?? [],
+    ignoredConflicts: stored?.ignoredConflicts ?? [],
   };
 }
 
