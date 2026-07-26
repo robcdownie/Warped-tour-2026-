@@ -16,6 +16,7 @@ export function ScheduleIoScreen() {
   const activeUserId = useApp((s) => s.settings.activeUserId);
   const artistById = useApp((s) => s.artistById);
   const provenance = useApp((s) => s.settings.schedule);
+  const updateScheduleMeta = useApp((s) => s.updateScheduleMeta);
   const status = useScheduleStatus();
   const [tab, setTab] = useState<'export' | 'import'>('import');
 
@@ -79,6 +80,11 @@ export function ScheduleIoScreen() {
             code={code}
             filename={`warped-schedule-${timestampSlug()}.json`}
             hint="Your friend imports this on the Schedule Import screen."
+            // scheduleExportedAt was only ever written on IMPORT, so the app
+            // could never tell whether a copy of the board existed anywhere.
+            onExported={() =>
+              void updateScheduleMeta({ scheduleExportedAt: new Date().toISOString() })
+            }
           />
         </>
       )}
