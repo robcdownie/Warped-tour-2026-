@@ -14,6 +14,7 @@ import type { DayId } from '@/domain/types';
 export function ScheduleIoScreen() {
   const performances = useApp((s) => s.performances);
   const activeUserId = useApp((s) => s.settings.activeUserId);
+  const artistById = useApp((s) => s.artistById);
   const provenance = useApp((s) => s.settings.schedule);
   const status = useScheduleStatus();
   const [tab, setTab] = useState<'export' | 'import'>('import');
@@ -29,8 +30,11 @@ export function ScheduleIoScreen() {
     return encodeSchedule(performances, activeUserId, new Date().toISOString(), {
       revision: provenance.scheduleRevision + 1,
       completeDays,
+      // Names for any band typed in off the board, so the receiving phone can
+      // create it rather than silently skipping the set.
+      artistById,
     });
-  }, [performances, activeUserId, provenance.scheduleRevision, status]);
+  }, [performances, activeUserId, provenance.scheduleRevision, status, artistById]);
   const scheduledCount = performances.filter((p) => p.startTime && p.stageId).length;
 
   return (

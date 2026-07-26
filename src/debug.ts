@@ -45,7 +45,9 @@ export function installDebugHook() {
     },
     exportSchedule: () => {
       const s = useApp.getState();
-      return encodeSchedule(s.performances, s.settings.activeUserId, new Date().toISOString());
+      return encodeSchedule(s.performances, s.settings.activeUserId, new Date().toISOString(), {
+        artistById: s.artistById,
+      });
     },
     exportSelections: (userId: string) => {
       const s = useApp.getState();

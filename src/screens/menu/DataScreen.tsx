@@ -16,6 +16,7 @@ export function DataScreen() {
   const users = useApp((s) => s.users);
   const selections = useApp((s) => s.selections);
   const performances = useApp((s) => s.performances);
+  const artistById = useApp((s) => s.artistById);
   const locations = useApp((s) => s.locations);
   const checkins = useApp((s) => s.checkins);
   const activeUserId = useApp((s) => s.settings.activeUserId);
@@ -39,8 +40,8 @@ export function DataScreen() {
     [users, selections, performances, locations, checkins, settings, activeUserId],
   );
   const scheduleCode = useMemo(
-    () => encodeSchedule(performances, activeUserId, new Date().toISOString()),
-    [performances, activeUserId],
+    () => encodeSchedule(performances, activeUserId, new Date().toISOString(), { artistById }),
+    [performances, activeUserId, artistById],
   );
   const coordsCode = useMemo(
     () => encodeCoordinates(locations, activeUserId, new Date().toISOString()),
